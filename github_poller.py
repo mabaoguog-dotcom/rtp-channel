@@ -42,7 +42,7 @@ def eligible(bet, now, minimum=10000):
 
 def fetch_bets(now, last_check, max_pages=50):
     # big-wins is NOT time-sorted: never stop at an old event inside a page.
-    window = "10m" if now - last_check < 480 else "1h"
+    window = "10m" if now - last_check <= 480 else "1h"
     cutoff = max(now - 3600, last_check - 120)
     cursor, cursors, found = None, set(), {}
     for _ in range(max_pages):
@@ -72,7 +72,7 @@ def fetch_bets(now, last_check, max_pages=50):
 
 
 def blank_state(now):
-    return {"version": 1, "last_check": now - 600, "hourly_slot": None, "events": {}}
+    return {"version": 1, "last_check": now - 480, "hourly_slot": None, "events": {}}
 
 
 def validate_state(state):

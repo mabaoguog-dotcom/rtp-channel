@@ -33,7 +33,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: '@rtpbodon'
           GAMBATRACKER_API_KEY: ${{ secrets.GAMBATRACKER_API_KEY }}
-          SHOULD_SEND: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'schedule' && vars.ENABLE_PUSH == 'true') }}
+          SHOULD_SEND: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || github.event_name == 'schedule' }}
         run: |
           if [ "$SHOULD_SEND" = "true" ]; then
             python github_poller.py --github --send
