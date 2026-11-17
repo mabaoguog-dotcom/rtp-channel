@@ -160,8 +160,8 @@ def big_win_message(bet, checked):
             f"派彩：${bet['payout_usd']:,.2f}\n"
             f"本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
             f"倍数：{bet['multiplier']:,.2f}x\n"
-            f"事件：{stamp:%m-%d %H:%M:%S} UTC\n"
-            f"检查：{checked_at:%m-%d %H:%M:%S} UTC\n\n"
+            f"事件：{bot.beijing_time(stamp)} 北京时间\n"
+            f"检查：{bot.beijing_time(checked_at)} 北京时间\n\n"
             "历史观测记录，不预测下一次结果；计划每5分钟检查，可能延迟。\n"
             '<a href="https://gambatracker.com/big-wins">Data: gambatracker.com</a>')
 

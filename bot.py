@@ -1,6 +1,6 @@
 """GambaTracker observed slot RTP digest. Python standard library only."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import html
 import json
 import math
@@ -14,6 +14,7 @@ from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 BASE = "https://gambatracker.com"
+BEIJING_TIMEZONE = timezone(timedelta(hours=8), name="北京时间")
 LABELS = {"10m": "近10分钟", "1h": "近1小时", "24h": "近24小时",
           "7d": "近7天", "30d": "近30天", "all": "全部历史"}
 
@@ -257,6 +258,10 @@ def utf16len(text):
     return len(text.encode("utf-16-le")) // 2
 
 
+def beijing_time(value):
+    return value.astimezone(BEIJING_TIMEZONE).strftime("%m-%d %H:%M:%S")
+
+
 def make_messages(snapshots, config):
     blocks = ["<b>老虎机 RTP 观测汇总</b>",
               "各周期从接口返回列表中按投注笔数选取；非全站完整排名。",
@@ -266,7 +271,7 @@ def make_messages(snapshots, config):
         if slugs:
             rows = [r for r in rows if r["game"]["slug"] in slugs]
         rows = sorted(rows, key=lambda r: r["n"], reverse=True)[:config["top_n"]]
-        blocks.append(f"<b>{LABELS[window]}</b> · 抓取 {fetched:%m-%d %H:%M:%S} UTC")
+        blocks.append(f"<b>{LABELS[window]}</b> · 抓取 {beijing_time(fetched)} 北京时间")
         blocks.extend(entry(row) for row in rows)
         if not rows:
             blocks.append("本次返回列表中暂无匹配的老虎机数据。")
@@ -302,8 +307,8 @@ def make_hourly_messages(snapshots, config):
     blocks = ["<b>每小时 · 活跃老虎机 RTP</b>",
               "从近24小时接口返回列表按投注笔数选取5款，非全站完整排名。",
               "中文名可点击查看出处；英文名链接为 RTP 页面。"]
-    blocks.append("抓取时间（UTC）：\n" + "\n".join(
-        f"{LABELS[w]} {fetched:%m-%d %H:%M:%S}" for w, _, fetched in snapshots))
+    blocks.append("抓取时间（北京时间，UTC+8）：\n" + "\n".join(
+        f"{LABELS[w]} {beijing_time(fetched)}" for w, _, fetched in snapshots))
     for row in active[:5]:
         slug = row["game"]["slug"]
         lines = [game_title(row["game"]), f"官方 RTP：{pct(row.get('official_rtp'))}"]
