@@ -1,0 +1,49 @@
+name: Slot RTP channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '实际发送到 @rtpbodon（不勾选则仅预览）'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rtp-channel
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify parser and formatting
+        run: python -m unittest discover -s tests -v
+      - name: Fetch and publish or preview
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: '@rtpbodon'
+          GAMBATRACKER_API_KEY: ${{ secrets.GAMBATRACKER_API_KEY }}
+          SHOULD_SEND: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'schedule' && vars.ENABLE_PUSH == 'true') }}
+        run: |
+          if [ "$SHOULD_SEND" = "true" ]; then
+            python bot.py --send
+          else
+            python bot.py
+          fi
+      - name: Save preview
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtp-preview
+          path: preview/*.html
+          retention-days: 3
