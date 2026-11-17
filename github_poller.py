@@ -185,9 +185,9 @@ def run(store, config, send=False, now=None):
         raise bot.BotError("派彩金额门槛无效")
     try:
         bets, complete = fetch_bets(now, state["last_check"])
-    except bot.BotError:
+    except bot.BotError as exc:
         bets, complete = [], False
-        print("大额接口读取失败，本次跳过；不向频道发异常通知")
+        print(f"大额接口读取失败：{exc}；本次跳过，不向频道发异常通知")
     candidates = sorted((b for b in bets if eligible(b, now, minimum)),
                         key=timestamp, reverse=True)
     due = state["hourly_slot"] is None or int(now // 3600) > state["hourly_slot"]
