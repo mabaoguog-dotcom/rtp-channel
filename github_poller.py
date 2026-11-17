@@ -30,6 +30,8 @@ def eligible(bet, now, minimum=10000):
     game = bet["game"]
     if game.get("kind") != "slots" or not re.fullmatch(r"[a-z0-9-]+", game.get("slug", "")):
         return False
+    if not bot.chinese_name(game):
+        return False
     if not isinstance(bet.get("id"), str) or not 1 <= len(bet["id"]) <= 256:
         return False
     if not all(bot.number(bet.get(k)) and bet[k] >= 0

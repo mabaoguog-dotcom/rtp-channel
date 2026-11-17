@@ -148,6 +148,62 @@ ZH_NAMES = {
     "source": "https://www.ppwinner.com/zh/游戏/",
     "source_title": "暗夜猎杀 (Killer Night)",
     "checked_at": "2026-11-17"
+  },
+  "5-lions-megaways-2": {
+    "zh": "5金狮Megaways™ 2",
+    "en": "5 Lions Megaways™ 2",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/5-lions-megaways-2/",
+    "source_title": "5金狮Megaways™ 2 (5 Lions Megaways™ 2)",
+    "source_type": "published_chinese_game_title",
+    "checked_at": "2026-11-17"
+  },
+  "big-bass-vegas-1000": {
+    "zh": "至尊疯狂大鲈鱼 1000",
+    "en": "Big Bass Vegas 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/big-bass-vegas-1000/",
+    "source_title": "至尊疯狂大鲈鱼 1000 (Big Bass Vegas 1000)",
+    "source_type": "published_chinese_game_title",
+    "checked_at": "2026-11-17"
+  },
+  "starlight-princess-1000": {
+    "zh": "星光公主 1000",
+    "en": "Starlight Princess 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/starlight-princess-1000/",
+    "source_title": "星光公主 1000 (Starlight Princess 1000)",
+    "source_type": "published_chinese_game_title",
+    "checked_at": "2026-11-17"
+  },
+  "wild-west-gold": {
+    "zh": "西部牛仔黄金地段™",
+    "en": "Wild West Gold™",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/wild-west-gold/",
+    "source_title": "西部牛仔黄金地段™ (Wild West Gold™)",
+    "source_type": "published_chinese_game_title",
+    "checked_at": "2026-11-17"
+  },
+  "land-of-the-free": {
+    "zh": "自由之国",
+    "en": "Land of The Free",
+    "provider": "nolimit-city",
+    "source": "https://beto168.com/free-slots/land-of-the-free",
+    "source_title": "Land of The Free 中文游戏评测",
+    "source_type": "published_chinese_catalog_name",
+    "source_quote": "**自由之国** **Nolimit City**",
+    "checked_at": "2026-11-17"
+  },
+  "moon-princess-trinity": {
+    "zh": "月亮公主三位一体",
+    "en": "Moon Princess Trinity",
+    "provider": "playn-go",
+    "source": "https://beto168.com/free-slots/moon-princess-trinity",
+    "source_title": "Moon Princess Trinity 中文游戏评测",
+    "source_type": "published_chinese_catalog_name",
+    "source_quote": "月亮公主三位一体",
+    "checked_at": "2026-11-17"
   }
 }
 
@@ -264,17 +320,22 @@ def beijing_time(value):
 
 def make_messages(snapshots, config):
     blocks = ["<b>老虎机 RTP 观测汇总</b>",
-              "各周期从接口返回列表中按投注笔数选取；非全站完整排名。",
+              "各周期仅从已核实中文名的游戏中按投注笔数选取；非全站完整排名。",
               "中文名取自已核实中文游戏页面，点击中文名可查看出处；英文名链接为 RTP 来源。"]
     slugs = set(config.get("game_slugs", []))
+    any_games = False
     for window, rows, fetched in snapshots:
         if slugs:
             rows = [r for r in rows if r["game"]["slug"] in slugs]
+        rows = [r for r in rows if chinese_name(r["game"])]
         rows = sorted(rows, key=lambda r: r["n"], reverse=True)[:config["top_n"]]
+        any_games = any_games or bool(rows)
         blocks.append(f"<b>{LABELS[window]}</b> · 抓取 {beijing_time(fetched)} 北京时间")
         blocks.extend(entry(row) for row in rows)
         if not rows:
-            blocks.append("本次返回列表中暂无匹配的老虎机数据。")
+            blocks.append("本次返回列表中暂无已核实中文名的匹配游戏。")
+    if not any_games:
+        return []
     blocks.extend(["观测样本可能不完整；历史 RTP 不预测下一次结果。",
                    '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
     return split_messages(blocks)
@@ -304,8 +365,11 @@ def make_hourly_messages(snapshots, config):
     wanted = set(config.get("game_slugs", []))
     if wanted:
         active = [r for r in active if r["game"]["slug"] in wanted]
+    active = [r for r in active if chinese_name(r["game"])]
+    if not active:
+        return []
     blocks = ["<b>每小时 · 活跃老虎机 RTP</b>",
-              "从近24小时接口返回列表按投注笔数选取5款，非全站完整排名。",
+              "从近24小时列表中，仅选中文名已核实的活跃游戏，最多5款，非全站完整排名。",
               "中文名可点击查看出处；英文名链接为 RTP 页面。"]
     blocks.append("抓取时间（北京时间，UTC+8）：\n" + "\n".join(
         f"{LABELS[w]} {beijing_time(fetched)}" for w, _, fetched in snapshots))

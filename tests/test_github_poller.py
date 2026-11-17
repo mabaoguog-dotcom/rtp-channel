@@ -20,7 +20,34 @@ def bet(now=2000000000, identity="casino:123"):
             "player": {"name": "DO_NOT_PUBLISH"}}
 
 
+def rtp_row():
+    return {"game": bet()["game"], "rtp": 1.1, "official_rtp": .965,
+            "n": 5000, "ci_low": .9, "ci_high": 1.3, "enough_sample": True}
+
+
 class PollTests(unittest.TestCase):
+    def test_unknown_chinese_name_is_excluded_from_big_win(self):
+        b = bet()
+        b["game"].update(slug="unknown-game", name="Unknown Game")
+        self.assertFalse(poll.eligible(b, 2000000000))
+        b["game"].update(slug="sweet-bonanza-2500", name="Sweet Bonanza 1000")
+        self.assertFalse(poll.eligible(b, 2000000000))
+
+    def test_unverified_games_never_appear_in_rtp_messages(self):
+        known = rtp_row()
+        unknown = copy.deepcopy(known)
+        unknown["game"].update(slug="unknown-game", name="Unknown Game")
+        unknown["n"] = 1000000
+        stamp = datetime.now(timezone.utc)
+        snapshots = [(w, [unknown, known], stamp) for w in ("10m", "1h", "24h")]
+        for make in (bot.make_hourly_messages, bot.make_messages):
+            text = "\n".join(make(snapshots, {"top_n": 3}))
+            self.assertIn("甜入心扉 2500", text)
+            self.assertNotIn("Unknown Game", text)
+            self.assertNotIn("中文名待核实", text)
+            empty = [(w, [unknown], stamp) for w in ("10m", "1h", "24h")]
+            self.assertEqual([], make(empty, {"top_n": 3}))
+
     def test_old_non_slot_loss_small_and_nonfinite_are_excluded(self):
         self.assertTrue(poll.eligible(bet(), 2000000000))
         self.assertFalse(poll.eligible(bet(), 2000003601))
@@ -74,7 +101,7 @@ class PollTests(unittest.TestCase):
     @patch("bot.check_channel", return_value=-100123)
     @patch("bot.telegram", return_value={"message_id": 1})
     @patch("github_poller.fetch_bets", return_value=([], True))
-    @patch("bot.get_rows", return_value=[])
+    @patch("bot.get_rows", return_value=[rtp_row()])
     @patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "123:test"})
     def test_hourly_is_sent_once_across_poll_runs(self, rows, fetch, telegram, channel, sleep):
         class Store:
