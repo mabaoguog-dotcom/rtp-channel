@@ -30,7 +30,7 @@ def main():
     button = {"type": "web_app", "text": "打开数据站", "web_app": {"url": APP_URL}}
     api("setChatMenuButton", {"menu_button": button})
     current = api("getChatMenuButton")
-    if current.get("type") != "web_app" or current.get("web_app", {}).get("url") != APP_URL:
+    if current.get("type") != "web_app" or current.get("web_app", {}).get("url", "").rstrip("/") != APP_URL.rstrip("/"):
         raise SystemExit("Telegram menu verification failed.")
     print("Verified @" + bot["username"] + " menu: 打开数据站 -> " + APP_URL)
 
