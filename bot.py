@@ -1,0 +1,204 @@
+"""GambaTracker observed slot RTP digest. Python standard library only."""
+import argparse
+from datetime import datetime, timezone
+import html
+import json
+import math
+import os
+from pathlib import Path
+import re
+import sys
+import time
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+BASE = "https://gambatracker.com"
+LABELS = {"10m": "近10分钟", "1h": "近1小时", "24h": "近24小时",
+          "7d": "近7天", "30d": "近30天", "all": "全部历史"}
+
+
+class BotError(Exception):
+    pass
+
+
+def request_json(url, payload=None, headers=None):
+    """Never include a secret-bearing request URL or response in errors."""
+    data = None if payload is None else json.dumps(payload).encode()
+    req = Request(url, data=data, headers={
+        "User-Agent": "curl/8.10.1", "Accept": "application/json",
+        "Content-Type": "application/json", **(headers or {})})
+    try:
+        with urlopen(req, timeout=30) as response:
+            return json.load(response)
+    except HTTPError as exc:
+        # GETs are safe to repeat. Telegram writes are deliberately not retried.
+        raise BotError(f"接口 HTTP {exc.code}；请求失败，未自动重试") from None
+    except (URLError, TimeoutError, OSError):
+        raise BotError("网络请求失败；若为发送请求，结果可能未知，请先检查频道") from None
+    except (ValueError, UnicodeError):
+        raise BotError("接口未返回有效 JSON") from None
+
+
+def number(value):
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value))
+
+
+def parse_rows(data, window):
+    if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
+        raise BotError("RTP 接口结构发生变化：缺少 rows")
+    rows = []
+    for row in data["rows"]:
+        if not isinstance(row, dict):
+            raise BotError("RTP 行结构无效")
+        game = row.get("game") or {}
+        if game.get("kind") != "slots":
+            continue
+        if row.get("window") != window or row.get("scope") != "slot":
+            raise BotError("接口返回了错误的统计周期或范围，已停止推送")
+        if not re.fullmatch(r"[a-z0-9-]+", game.get("slug", "")):
+            raise BotError("游戏标识无效")
+        if row.get("rtp") is None:
+            continue
+        for key in ("rtp", "n", "wagered_usd"):
+            if not number(row.get(key)) or row[key] < 0:
+                raise BotError(f"RTP 数值无效：{key}")
+        if row["wagered_usd"] == 0:
+            continue
+        rows.append(row)
+    return rows
+
+
+def get_rows(window, limit):
+    params = urlencode({"window": window, "scope": "slot", "limit": limit})
+    key = os.environ.get("GAMBATRACKER_API_KEY", "").strip()
+    data = request_json(f"{BASE}/api/rtp?{params}",
+                        headers={"x-api-key": key} if key else {})
+    return parse_rows(data, window)
+
+
+def pct(value):
+    return f"{value * 100:.2f}%" if number(value) else "暂无"
+
+
+def entry(row):
+    game = row["game"]
+    name = html.escape(str(game.get("name", game["slug"]))[:100])
+    url = f"{BASE}/slots/{game['slug']}"
+    low, high = row.get("ci_low"), row.get("ci_high")
+    band = f"{pct(low)}–{pct(high)}" if number(low) and number(high) else "暂无"
+    sample = "样本达标" if row.get("enough_sample") is True else "样本不足"
+    return (f'<a href="{url}">{name}</a>\n'
+            f'观测 {pct(row["rtp"])}｜官方 {pct(row.get("official_rtp"))}\n'
+            f'{int(row["n"]):,}笔｜{sample}｜95%区间 {band}')
+
+
+def utf16len(text):
+    return len(text.encode("utf-16-le")) // 2
+
+
+def make_messages(snapshots, config):
+    blocks = ["<b>老虎机 RTP 观测汇总</b>",
+              "各周期从接口返回列表中按投注笔数选取；非全站完整排名。"]
+    slugs = set(config.get("game_slugs", []))
+    for window, rows, fetched in snapshots:
+        if slugs:
+            rows = [r for r in rows if r["game"]["slug"] in slugs]
+        rows = sorted(rows, key=lambda r: r["n"], reverse=True)[:config["top_n"]]
+        blocks.append(f"<b>{LABELS[window]}</b> · 抓取 {fetched:%m-%d %H:%M:%S} UTC")
+        blocks.extend(entry(row) for row in rows)
+        if not rows:
+            blocks.append("本次返回列表中暂无匹配的老虎机数据。")
+    blocks.extend(["观测样本可能不完整；历史 RTP 不预测下一次结果。",
+                   '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
+    messages, current = [], ""
+    for block in blocks:
+        candidate = current + ("\n\n" if current else "") + block
+        # Bound raw HTML too: stricter than Telegram's parsed-text limit.
+        if utf16len(candidate) > 3500:
+            messages.append(current)
+            current = block
+        else:
+            current = candidate
+    if current:
+        messages.append(current)
+    if len(messages) > 1:
+        attribution = '\n\n<a href="https://gambatracker.com">Data: gambatracker.com</a>'
+        messages = [m + attribution for m in messages]
+    return messages
+
+
+def telegram(token, method, payload):
+    answer = request_json(f"https://api.telegram.org/bot{token}/{method}", payload)
+    if not isinstance(answer, dict) or answer.get("ok") is not True:
+        raise BotError("Telegram 拒绝请求，请检查 Token 和频道权限")
+    return answer["result"]
+
+
+def check_channel(token, config):
+    me = telegram(token, "getMe", {})
+    if me.get("username", "").lower() != config["expected_bot"].lstrip("@").lower():
+        raise BotError("Token 对应的机器人不是配置中的机器人")
+    channel = telegram(token, "getChat", {"chat_id": config["channel"]})
+    if channel.get("type") != "channel":
+        raise BotError("目标不是 Telegram 频道")
+    member = telegram(token, "getChatMember", {
+        "chat_id": channel["id"], "user_id": me["id"]})
+    if member.get("status") != "creator" and not (
+            member.get("status") == "administrator" and member.get("can_post_messages") is True):
+        raise BotError("请将机器人设为频道管理员并开启发布消息权限")
+    return channel["id"]
+
+
+def validate_config(config):
+    windows = config.get("windows", [])
+    if not windows or len(windows) != len(set(windows)) or any(w not in LABELS for w in windows):
+        raise BotError("windows 必须是支持的、不重复的统计周期")
+    if not isinstance(config.get("top_n"), int) or not 1 <= config["top_n"] <= 10:
+        raise BotError("top_n 必须在 1–10 之间")
+    if not isinstance(config.get("fetch_limit"), int) or not 1 <= config["fetch_limit"] <= 200:
+        raise BotError("fetch_limit 必须在 1–200 之间")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--send", action="store_true", help="实际发送；默认只生成预览")
+    parser.add_argument("--config", default="config.json")
+    args = parser.parse_args()
+    config = json.loads(Path(args.config).read_text())
+    validate_config(config)
+    config["channel"] = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or config["channel"]
+    snapshots = []
+    # Fetch everything successfully before sending any messages.
+    for window in config["windows"]:
+        rows = get_rows(window, config["fetch_limit"])
+        snapshots.append((window, rows, datetime.now(timezone.utc)))
+    messages = make_messages(snapshots, config)
+    preview = Path("preview")
+    preview.mkdir(exist_ok=True)
+    for index, message in enumerate(messages, 1):
+        (preview / f"message-{index}.html").write_text(message, encoding="utf-8")
+    if not args.send:
+        print(f"仅生成预览，共 {len(messages)} 条；未连接 Telegram，未发送消息。")
+        return
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
+        raise BotError("请在 GitHub Secrets 中设置 TELEGRAM_BOT_TOKEN")
+    channel_id = check_channel(token, config)
+    for index, message in enumerate(messages, 1):
+        telegram(token, "sendMessage", {
+            "chat_id": channel_id, "text": message, "parse_mode": "HTML",
+            "link_preview_options": {"is_disabled": True}})
+        print(f"已发送 {index}/{len(messages)}")
+        if index < len(messages):
+            time.sleep(1.1)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (BotError, ValueError, KeyError, OSError) as exc:
+        # Only safe, authored errors are printed; never leak HTTP request URLs.
+        print(str(exc) if isinstance(exc, BotError) else f"配置或数据错误：{type(exc).__name__}", file=sys.stderr)
+        sys.exit(1)

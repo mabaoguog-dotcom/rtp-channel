@@ -1,0 +1,8 @@
+{
+  "channel": "@rtpbodon",
+  "expected_bot": "RTPzhushouBOT",
+  "windows": ["10m", "1h", "24h", "7d", "30d", "all"],
+  "top_n": 3,
+  "fetch_limit": 200,
+  "game_slugs": []
+}
