@@ -10,12 +10,145 @@ import re
 import sys
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 BASE = "https://gambatracker.com"
 LABELS = {"10m": "近10分钟", "1h": "近1小时", "24h": "近24小时",
           "7d": "近7天", "30d": "近30天", "all": "全部历史"}
+
+# Published Chinese titles, manually checked against exact English editions.
+# Embedded so mobile users only need to replace bot.py. No machine translation.
+ZH_NAMES = {
+  "gates-of-olympus-2500": {
+    "zh": "奥林匹斯之门2500",
+    "en": "Gates of Olympus 2500",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/gates-of-olympus-2500/",
+    "source_title": "奥林匹斯之门2500 (Gates of Olympus 2500)",
+    "checked_at": "2026-11-17"
+  },
+  "gates-of-olympus-super-scatter": {
+    "zh": "奥林匹斯之门超神力",
+    "en": "Gates of Olympus Super Scatter",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/gates-of-olympus-super-scatter/",
+    "source_title": "奥林匹斯之门超神力 (Gates of Olympus Super Scatter)",
+    "checked_at": "2026-11-17"
+  },
+  "sweet-bonanza-2500": {
+    "zh": "甜入心扉 2500",
+    "en": "Sweet Bonanza 2500",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/sweet-bonanza-2500/",
+    "source_title": "甜入心扉 2500 (Sweet Bonanza 2500)",
+    "checked_at": "2026-11-17"
+  },
+  "big-bass-halloween-splash-1000": {
+    "zh": "大鲈鱼溅水万圣夜1000",
+    "en": "Big Bass Halloween Splash 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/big-bass-halloween-splash-1000/",
+    "source_title": "大鲈鱼溅水万圣夜1000 (Big Bass Halloween Splash 1000)",
+    "checked_at": "2026-11-17"
+  },
+  "sugar-rush-1000": {
+    "zh": "极速糖果1000",
+    "en": "Sugar Rush 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/sugar-rush-1000/",
+    "source_title": "极速糖果1000 (Sugar Rush 1000)",
+    "checked_at": "2026-11-17"
+  },
+  "gates-of-olympus-1000": {
+    "zh": "奥林匹斯之门 1000",
+    "en": "Gates of Olympus 1000™",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/gates-of-olympus-1000/",
+    "source_title": "奥林匹斯之门 1000 (Gates of Olympus 1000™)",
+    "checked_at": "2026-11-17"
+  },
+  "sweet-bonanza-1000": {
+    "zh": "甜入心扉 1000",
+    "en": "Sweet Bonanza 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/sweet-bonanza-1000/",
+    "source_title": "甜入心扉 1000 (Sweet Bonanza 1000)",
+    "checked_at": "2026-11-17"
+  },
+  "big-bass-bonanza-1000": {
+    "zh": "疯狂大鲈鱼 1000",
+    "en": "Big Bass Bonanza 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/big-bass-bonanza-1000/",
+    "source_title": "疯狂大鲈鱼 1000 (Big Bass Bonanza 1000)",
+    "checked_at": "2026-11-17"
+  },
+  "sweet-bonanza": {
+    "zh": "甜入心扉™",
+    "en": "Sweet Bonanza™",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/sweet-bonanza/",
+    "source_title": "甜入心扉™ (Sweet Bonanza™)",
+    "checked_at": "2026-11-17"
+  },
+  "gates-of-olympus": {
+    "zh": "奥林匹斯之门™",
+    "en": "Gates of Olympus™",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/gates-of-olympus/",
+    "source_title": "奥林匹斯之门™ (Gates of Olympus™)",
+    "checked_at": "2026-11-17"
+  },
+  "sugar-rush": {
+    "zh": "极速糖果",
+    "en": "Sugar Rush",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/sugar-rush/",
+    "source_title": "极速糖果 (Sugar Rush)",
+    "checked_at": "2026-11-17"
+  },
+  "fruit-party": {
+    "zh": "水果派对™",
+    "en": "Fruit Party™",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/fruit-party/",
+    "source_title": "水果派对™ (Fruit Party™)",
+    "checked_at": "2026-11-17"
+  },
+  "big-bass-christmas-blast-1000": {
+    "zh": "疯狂大鲈鱼欢乐爆发 1000",
+    "en": "Big Bass Christmas Blast 1000",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/",
+    "source_title": "疯狂大鲈鱼欢乐爆发 1000 (Big Bass Christmas Blast 1000)",
+    "checked_at": "2026-11-17"
+  },
+  "zeus-vs-hades-pop": {
+    "zh": "宙斯vs哈迪斯 POP",
+    "en": "Zeus vs Hades POP",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/",
+    "source_title": "宙斯vs哈迪斯 POP (Zeus vs Hades POP)",
+    "checked_at": "2026-11-17"
+  },
+  "super-golden-spins": {
+    "zh": "超级大跃金",
+    "en": "Super Golden Spins",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/",
+    "source_title": "超级大跃金 (Super Golden Spins)",
+    "checked_at": "2026-11-17"
+  },
+  "killer-night": {
+    "zh": "暗夜猎杀",
+    "en": "Killer Night",
+    "provider": "pragmatic-play",
+    "source": "https://www.ppwinner.com/zh/游戏/",
+    "source_title": "暗夜猎杀 (Killer Night)",
+    "checked_at": "2026-11-17"
+  }
+}
 
 
 class BotError(Exception):
@@ -82,14 +215,40 @@ def pct(value):
     return f"{value * 100:.2f}%" if number(value) else "暂无"
 
 
-def entry(row):
-    game = row["game"]
+def normalized_title(value):
+    return " ".join(str(value).replace("™", "").replace("®", "").split()).casefold()
+
+
+def chinese_name(game):
+    record = ZH_NAMES.get(game.get("slug"))
+    if not record:
+        return None
+    provider = game.get("provider") or {}
+    if (provider.get("slug") != record["provider"] or
+            normalized_title(game.get("name", "")) != normalized_title(record["en"])):
+        return None
+    return record
+
+
+def game_title(game):
     name = html.escape(str(game.get("name", game["slug"]))[:100])
     url = f"{BASE}/slots/{game['slug']}"
+    record = chinese_name(game)
+    if record:
+        source = html.escape(quote(record["source"], safe=":/%"), quote=True)
+        zh = html.escape(record["zh"])
+        title = f'<a href="{source}">{zh}</a>（<a href="{url}">{name}</a>）'
+    else:
+        title = f'<a href="{url}">{name}</a>（中文名待核实）'
+    return title
+
+
+def entry(row):
+    title = game_title(row["game"])
     low, high = row.get("ci_low"), row.get("ci_high")
     band = f"{pct(low)}–{pct(high)}" if number(low) and number(high) else "暂无"
     sample = "样本达标" if row.get("enough_sample") is True else "样本不足"
-    return (f'<a href="{url}">{name}</a>\n'
+    return (f'{title}\n'
             f'观测 {pct(row["rtp"])}｜官方 {pct(row.get("official_rtp"))}\n'
             f'{int(row["n"]):,}笔｜{sample}｜95%区间 {band}')
 
@@ -100,7 +259,8 @@ def utf16len(text):
 
 def make_messages(snapshots, config):
     blocks = ["<b>老虎机 RTP 观测汇总</b>",
-              "各周期从接口返回列表中按投注笔数选取；非全站完整排名。"]
+              "各周期从接口返回列表中按投注笔数选取；非全站完整排名。",
+              "中文名取自已核实中文游戏页面，点击中文名可查看出处；英文名链接为 RTP 来源。"]
     slugs = set(config.get("game_slugs", []))
     for window, rows, fetched in snapshots:
         if slugs:
@@ -112,6 +272,10 @@ def make_messages(snapshots, config):
             blocks.append("本次返回列表中暂无匹配的老虎机数据。")
     blocks.extend(["观测样本可能不完整；历史 RTP 不预测下一次结果。",
                    '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
+    return split_messages(blocks)
+
+
+def split_messages(blocks):
     messages, current = [], ""
     for block in blocks:
         candidate = current + ("\n\n" if current else "") + block
@@ -127,6 +291,36 @@ def make_messages(snapshots, config):
         attribution = '\n\n<a href="https://gambatracker.com">Data: gambatracker.com</a>'
         messages = [m + attribution for m in messages]
     return messages
+
+
+def make_hourly_messages(snapshots, config):
+    tables = {w: {r["game"]["slug"]: r for r in rows} for w, rows, _ in snapshots}
+    active = sorted(tables.get("24h", {}).values(), key=lambda r: r["n"], reverse=True)
+    wanted = set(config.get("game_slugs", []))
+    if wanted:
+        active = [r for r in active if r["game"]["slug"] in wanted]
+    blocks = ["<b>每小时 · 活跃老虎机 RTP</b>",
+              "从近24小时接口返回列表按投注笔数选取5款，非全站完整排名。",
+              "中文名可点击查看出处；英文名链接为 RTP 页面。"]
+    blocks.append("抓取时间（UTC）：\n" + "\n".join(
+        f"{LABELS[w]} {fetched:%m-%d %H:%M:%S}" for w, _, fetched in snapshots))
+    for row in active[:5]:
+        slug = row["game"]["slug"]
+        lines = [game_title(row["game"]), f"官方 RTP：{pct(row.get('official_rtp'))}"]
+        for window in ("10m", "1h", "24h"):
+            item = tables.get(window, {}).get(slug)
+            if item is None:
+                lines.append(f"{LABELS[window]}：本次返回列表未包含，暂无可用值")
+                continue
+            flag = "样本达标" if item.get("enough_sample") is True else "样本不足"
+            band = f"{pct(item.get('ci_low'))}–{pct(item.get('ci_high'))}"
+            lines.append(f"{LABELS[window]}：{pct(item['rtp'])} · {int(item['n']):,}笔 · {flag}\n95%区间：{band}")
+        blocks.append("\n".join(lines))
+    if not active:
+        blocks.append("本次返回列表中暂无匹配的老虎机数据。")
+    blocks.extend(["公开观测样本可能不完整；历史 RTP 不预测下一次结果。",
+                   '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
+    return split_messages(blocks)
 
 
 def telegram(token, method, payload):
@@ -165,16 +359,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--send", action="store_true", help="实际发送；默认只生成预览")
     parser.add_argument("--config", default="config.json")
+    parser.add_argument("--hourly", action="store_true", help="5款游戏的10m/1h/24h对照汇总")
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
     validate_config(config)
     config["channel"] = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or config["channel"]
     snapshots = []
     # Fetch everything successfully before sending any messages.
-    for window in config["windows"]:
+    windows = ["10m", "1h", "24h"] if args.hourly else config["windows"]
+    for window in windows:
         rows = get_rows(window, config["fetch_limit"])
         snapshots.append((window, rows, datetime.now(timezone.utc)))
-    messages = make_messages(snapshots, config)
+    messages = (make_hourly_messages if args.hourly else make_messages)(snapshots, config)
     preview = Path("preview")
     preview.mkdir(exist_ok=True)
     for index, message in enumerate(messages, 1):
