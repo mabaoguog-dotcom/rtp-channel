@@ -53,10 +53,10 @@ def fetch_bets(now, last_check, max_pages=50):
         data = bot.request_json(f"{bot.BASE}/api/bets?{urlencode(params)}",
                                 headers={"x-api-key": key} if key else {})
         if not isinstance(data, dict) or not isinstance(data.get("bets"), list):
-            raise bot.BotError("å¤§é¢è®°å½æ¥å£ç»æåçåå")
+            raise bot.BotError("大额记录接口结构发生变化")
         for bet in data["bets"]:
             if not isinstance(bet, dict):
-                raise bot.BotError("å¤§é¢è®°å½æ ¼å¼æ æ")
+                raise bot.BotError("大额记录格式无效")
             stamp = timestamp(bet)
             if stamp is not None and stamp >= cutoff and isinstance(bet.get("id"), str):
                 found[bet["id"]] = bet
@@ -64,10 +64,10 @@ def fetch_bets(now, last_check, max_pages=50):
         if not cursor:
             return list(found.values()), True
         if not isinstance(cursor, str) or cursor in cursors:
-            raise bot.BotError("æ°æ®æºåé¡µæ¸¸æ æ ææéå¤")
+            raise bot.BotError("数据源分页游标无效或重复")
         cursors.add(cursor)
     # Do not advance the watermark if the bounded scan is incomplete.
-    print("æ«æè¾¾å°é¡µæ°ä¸éï¼æ¬æ¬¡ä»å¤çå·²è¯»è®°å½ï¼ä¿çä¸æ¬¡æ£æ¥æ¶é´ï¼ä¸åé¢éåå¼å¸¸éç¥")
+    print("扫描达到页数上限；本次仅处理已读记录，保留上次检查时间；不向频道发异常通知")
     return list(found.values()), False
 
 
@@ -80,11 +80,11 @@ def validate_state(state):
             not bot.number(state.get("last_check")) or
             not isinstance(state.get("events"), dict) or
             (state.get("hourly_slot") is not None and not isinstance(state["hourly_slot"], int))):
-        raise bot.BotError("å»éç¶ææ æï¼å·²åæ­¢åéä»¥é¿åéå¤")
+        raise bot.BotError("去重状态无效；已停止发送以避免重复")
     for value in state["events"].values():
         if (not isinstance(value, dict) or not bot.number(value.get("claimed")) or
                 not isinstance(value.get("game"), str)):
-            raise bot.BotError("å»éè®°å½æ æï¼å·²åæ­¢åé")
+            raise bot.BotError("去重记录无效；已停止发送")
     return state
 
 
@@ -100,7 +100,7 @@ class StateStore:
         result = subprocess.run(["git", *args], input=data, text=True, env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
         if result.returncode not in allowed:
-            raise bot.BotError("GitHub å»éç¶æè¯»åå¤±è´¥ï¼æªç»§ç»­åéï¼è¯·æ£æ¥ contents: write æéååæ¯è§å")
+            raise bot.BotError("GitHub 去重状态读写失败；未继续发送，请检查 contents: write 权限和分支规则")
         return result
 
     def load(self, now):
@@ -118,7 +118,7 @@ class StateStore:
         try:
             return validate_state(json.loads(raw))
         except (ValueError, TypeError):
-            raise bot.BotError("å»éç¶æä¸æ¯ææJSONï¼å·²åæ­¢åé") from None
+            raise bot.BotError("去重状态不是有效JSON；已停止发送") from None
 
     def save(self, state):
         raw = json.dumps(validate_state(state), ensure_ascii=False, sort_keys=True)
@@ -152,24 +152,24 @@ def claim_bet(state, bet, now, cap=6, cooldown=600):
 
 
 def big_win_message(bet, checked):
-    casino = html.escape(str((bet.get("casino") or {}).get("name", "æªç¥èµåº"))[:80])
+    casino = html.escape(str((bet.get("casino") or {}).get("name", "未知赌场"))[:80])
     stamp = datetime.fromtimestamp(timestamp(bet), timezone.utc)
     checked_at = datetime.fromtimestamp(checked, timezone.utc)
-    return ("<b>ð å¤§é¢æ´¾å½©è®°å½ Â· å®æ¶æ£æ¥</b>\n\n" + bot.game_title(bet["game"]) +
-            f"\nèµåºï¼{casino}\nææ³¨ï¼${bet['amount_usd']:,.2f}\n"
-            f"æ´¾å½©ï¼${bet['payout_usd']:,.2f}\n"
-            f"æ¬ç¬åèµ¢ï¼${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
-            f"åæ°ï¼{bet['multiplier']:,.2f}x\n"
-            f"äºä»¶ï¼{stamp:%m-%d %H:%M:%S} UTC\n"
-            f"æ£æ¥ï¼{checked_at:%m-%d %H:%M:%S} UTC\n\n"
-            "åå²è§æµè®°å½ï¼ä¸é¢æµä¸ä¸æ¬¡ç»æï¼è®¡åæ¯5åéæ£æ¥ï¼å¯è½å»¶è¿ã\n"
+    return ("<b>🏆 大额派彩记录 · 定时检查</b>\n\n" + bot.game_title(bet["game"]) +
+            f"\n赌场：{casino}\n投注：${bet['amount_usd']:,.2f}\n"
+            f"派彩：${bet['payout_usd']:,.2f}\n"
+            f"本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
+            f"倍数：{bet['multiplier']:,.2f}x\n"
+            f"事件：{stamp:%m-%d %H:%M:%S} UTC\n"
+            f"检查：{checked_at:%m-%d %H:%M:%S} UTC\n\n"
+            "历史观测记录，不预测下一次结果；计划每5分钟检查，可能延迟。\n"
             '<a href="https://gambatracker.com/big-wins">Data: gambatracker.com</a>')
 
 
 def send_messages(messages, token, channel_id):
     for index, message in enumerate(messages):
         if bot.utf16len(message) >= 4096:
-            raise bot.BotError("æ¶æ¯è¿é¿ï¼å·²åæ­¢åé")
+            raise bot.BotError("消息过长，已停止发送")
         if index:
             time.sleep(1.1)
         bot.telegram(token, "sendMessage", {
@@ -182,12 +182,12 @@ def run(store, config, send=False, now=None):
     state = store.load(now)
     minimum = float(os.environ.get("BIG_WIN_MIN_PAYOUT_USD", "10000"))
     if not bot.number(minimum) or minimum <= 0:
-        raise bot.BotError("æ´¾å½©éé¢é¨æ§æ æ")
+        raise bot.BotError("派彩金额门槛无效")
     try:
         bets, complete = fetch_bets(now, state["last_check"])
     except bot.BotError:
         bets, complete = [], False
-        print("å¤§é¢æ¥å£è¯»åå¤±è´¥ï¼æ¬æ¬¡è·³è¿ï¼ä¸åé¢éåå¼å¸¸éç¥")
+        print("大额接口读取失败，本次跳过；不向频道发异常通知")
     candidates = sorted((b for b in bets if eligible(b, now, minimum)),
                         key=timestamp, reverse=True)
     due = state["hourly_slot"] is None or int(now // 3600) > state["hourly_slot"]
@@ -198,7 +198,7 @@ def run(store, config, send=False, now=None):
                          for window in ("10m", "1h", "24h")]
             hourly = bot.make_hourly_messages(snapshots, config)
         except bot.BotError:
-            print("RTPè¯»åå¤±è´¥ï¼æ¬æ¬¡è·³è¿ï¼ä¸ä¸æ¬¡æ£æ¥å¯éè¯ï¼ä¸åé¢éåå¼å¸¸éç¥")
+            print("RTP读取失败，本次跳过，下一次检查可重试；不向频道发异常通知")
     preview = Path("preview")
     preview.mkdir(exist_ok=True)
     for index, message in enumerate(hourly, 1):
@@ -209,11 +209,11 @@ def run(store, config, send=False, now=None):
             if claim_bet(state, bet, now):
                 count += 1
                 (preview / f"big-win-{count}.html").write_text(big_win_message(bet, now), encoding="utf-8")
-        print(f"ä»é¢è§ï¼{len(hourly)}æ¡RTPæ±æ»ã{count}æ¡å¤§é¢è®°å½ï¼æ²¡æåéãæ²¡æåå¥GitHubå»éç¶æ")
+        print(f"仅预览：{len(hourly)}条RTP汇总、{count}条大额记录；没有发送、没有写入GitHub去重状态")
         return
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
-        raise bot.BotError("è¯·éç½® TELEGRAM_BOT_TOKEN Secret")
+        raise bot.BotError("请配置 TELEGRAM_BOT_TOKEN Secret")
     channel_id = bot.check_channel(token, config)
     if due and hourly:
         state["hourly_slot"] = int(now // 3600)
@@ -221,7 +221,7 @@ def run(store, config, send=False, now=None):
         try:
             send_messages(hourly, token, channel_id)
         except bot.BotError:
-            print("RTPåéå¤±è´¥æç»ææªç¥ï¼å·²å ä½é¿åéåï¼ä¸åå¼å¸¸éç¥")
+            print("RTP发送失败或结果未知，已占位避免重发；不发异常通知")
     for bet in candidates:
         # Recheck after fetching/pushing; never post records older than the window.
         current = time.time()
@@ -231,10 +231,10 @@ def run(store, config, send=False, now=None):
         try:
             send_messages([big_win_message(bet, now)], token, channel_id)
             state["events"][bet["id"]]["status"] = "sent"
-            print("å·²æ¨é1æ¡å¤§é¢è®°å½")
+            print("已推送1条大额记录")
         except bot.BotError:
             state["events"][bet["id"]]["status"] = "unknown_or_failed"
-            print("å¤§é¢è®°å½åéå¤±è´¥æç»ææªç¥ï¼ä¸éè¯ãä¸åå¼å¸¸éç¥")
+            print("大额记录发送失败或结果未知，不重试、不发异常通知")
         store.save(state)
         time.sleep(1.1)
     if complete:
@@ -257,5 +257,5 @@ if __name__ == "__main__":
     try:
         main()
     except (bot.BotError, ValueError, KeyError, OSError, subprocess.SubprocessError) as exc:
-        print(str(exc) if isinstance(exc, bot.BotError) else f"è¿è¡å¤±è´¥ï¼{type(exc).__name__}ï¼ä¸åé¢éåå¼å¸¸éç¥", file=sys.stderr)
+        print(str(exc) if isinstance(exc, bot.BotError) else f"运行失败：{type(exc).__name__}；不向频道发异常通知", file=sys.stderr)
         sys.exit(1)

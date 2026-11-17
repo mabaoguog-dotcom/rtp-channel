@@ -1,261 +1,49 @@
-"""GitHub-only scheduled big-win checks and hourly RTP. Standard library only."""
-import argparse
-from datetime import datetime, timezone
-import html
-import json
-import os
-from pathlib import Path
-import re
-import subprocess
-import sys
-import time
-from urllib.parse import urlencode
+name: Slot RTP channel
 
-import bot
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: '实际发送到 @rtpbodon（不勾选则仅预览）'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '2-57/5 * * * *'
 
-STATE_REF = "refs/heads/rtp-bot-state"
+permissions:
+  contents: write
 
+concurrency:
+  group: rtp-channel
+  cancel-in-progress: false
 
-def timestamp(bet):
-    try:
-        stamp = datetime.fromisoformat(bet["ts"].replace("Z", "+00:00"))
-        return stamp.timestamp() if stamp.tzinfo else None
-    except (KeyError, ValueError, TypeError, AttributeError):
-        return None
-
-
-def eligible(bet, now, minimum=10000):
-    if not isinstance(bet, dict) or not isinstance(bet.get("game"), dict):
-        return False
-    game = bet["game"]
-    if game.get("kind") != "slots" or not re.fullmatch(r"[a-z0-9-]+", game.get("slug", "")):
-        return False
-    if not isinstance(bet.get("id"), str) or not 1 <= len(bet["id"]) <= 256:
-        return False
-    if not all(bot.number(bet.get(k)) and bet[k] >= 0
-               for k in ("amount_usd", "payout_usd", "multiplier")):
-        return False
-    stamp = timestamp(bet)
-    return (stamp is not None and -30 <= now - stamp <= 3600 and
-            bet["payout_usd"] >= minimum and bet["payout_usd"] > bet["amount_usd"])
-
-
-def fetch_bets(now, last_check, max_pages=50):
-    # big-wins is NOT time-sorted: never stop at an old event inside a page.
-    window = "10m" if now - last_check < 480 else "1h"
-    cutoff = max(now - 3600, last_check - 120)
-    cursor, cursors, found = None, set(), {}
-    for _ in range(max_pages):
-        params = {"feed": "big-wins", "window": window, "limit": 200}
-        if cursor:
-            params["cursor"] = cursor
-        key = os.environ.get("GAMBATRACKER_API_KEY", "").strip()
-        data = bot.request_json(f"{bot.BASE}/api/bets?{urlencode(params)}",
-                                headers={"x-api-key": key} if key else {})
-        if not isinstance(data, dict) or not isinstance(data.get("bets"), list):
-            raise bot.BotError("å¤§é¢è®°å½æ¥å£ç»æåçåå")
-        for bet in data["bets"]:
-            if not isinstance(bet, dict):
-                raise bot.BotError("å¤§é¢è®°å½æ ¼å¼æ æ")
-            stamp = timestamp(bet)
-            if stamp is not None and stamp >= cutoff and isinstance(bet.get("id"), str):
-                found[bet["id"]] = bet
-        cursor = data.get("next")
-        if not cursor:
-            return list(found.values()), True
-        if not isinstance(cursor, str) or cursor in cursors:
-            raise bot.BotError("æ°æ®æºåé¡µæ¸¸æ æ ææéå¤")
-        cursors.add(cursor)
-    # Do not advance the watermark if the bounded scan is incomplete.
-    print("æ«æè¾¾å°é¡µæ°ä¸éï¼æ¬æ¬¡ä»å¤çå·²è¯»è®°å½ï¼ä¿çä¸æ¬¡æ£æ¥æ¶é´ï¼ä¸åé¢éåå¼å¸¸éç¥")
-    return list(found.values()), False
-
-
-def blank_state(now):
-    return {"version": 1, "last_check": now - 600, "hourly_slot": None, "events": {}}
-
-
-def validate_state(state):
-    if (not isinstance(state, dict) or state.get("version") != 1 or
-            not bot.number(state.get("last_check")) or
-            not isinstance(state.get("events"), dict) or
-            (state.get("hourly_slot") is not None and not isinstance(state["hourly_slot"], int))):
-        raise bot.BotError("å»éç¶ææ æï¼å·²åæ­¢åéä»¥é¿åéå¤")
-    for value in state["events"].values():
-        if (not isinstance(value, dict) or not bot.number(value.get("claimed")) or
-                not isinstance(value.get("game"), str)):
-            raise bot.BotError("å»éè®°å½æ æï¼å·²åæ­¢åé")
-    return state
-
-
-class StateStore:
-    def __init__(self, path="preview/poller-state.json", github=False):
-        self.path, self.github, self.parent = Path(path), github, None
-
-    def git(self, *args, data=None, allowed=(0,)):
-        env = dict(os.environ, GIT_AUTHOR_NAME="rtp-channel",
-                   GIT_AUTHOR_EMAIL="rtp-channel@users.noreply.github.com",
-                   GIT_COMMITTER_NAME="rtp-channel",
-                   GIT_COMMITTER_EMAIL="rtp-channel@users.noreply.github.com")
-        result = subprocess.run(["git", *args], input=data, text=True, env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
-        if result.returncode not in allowed:
-            raise bot.BotError("GitHub å»éç¶æè¯»åå¤±è´¥ï¼æªç»§ç»­åéï¼è¯·æ£æ¥ contents: write æéååæ¯è§å")
-        return result
-
-    def load(self, now):
-        if self.github:
-            remote = self.git("ls-remote", "--exit-code", "--heads", "origin", STATE_REF, allowed=(0, 2))
-            if remote.returncode == 2:
-                return blank_state(now)
-            self.git("fetch", "--no-tags", "--depth=1", "origin", STATE_REF)
-            self.parent = self.git("rev-parse", "FETCH_HEAD").stdout.strip()
-            raw = self.git("show", f"{self.parent}:state.json").stdout
-        elif self.path.exists():
-            raw = self.path.read_text()
-        else:
-            return blank_state(now)
-        try:
-            return validate_state(json.loads(raw))
-        except (ValueError, TypeError):
-            raise bot.BotError("å»éç¶æä¸æ¯ææJSONï¼å·²åæ­¢åé") from None
-
-    def save(self, state):
-        raw = json.dumps(validate_state(state), ensure_ascii=False, sort_keys=True)
-        if self.github:
-            blob = self.git("hash-object", "-w", "--stdin", data=raw).stdout.strip()
-            tree = self.git("mktree", data=f"100644 blob {blob}\tstate.json\n").stdout.strip()
-            args = ["commit-tree", tree]
-            if self.parent:
-                args += ["-p", self.parent]
-            commit = self.git(*args, data="Save RTP notification state\n").stdout.strip()
-            # Fast-forward only; never force-push or edit source branches.
-            self.git("push", "origin", f"{commit}:{STATE_REF}")
-            self.parent = commit
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_text(raw, encoding="utf-8")
-        temporary.replace(self.path)
-
-
-def claim_bet(state, bet, now, cap=6, cooldown=600):
-    state["events"] = {key: value for key, value in state["events"].items()
-                       if value["claimed"] >= now - 7 * 86400}
-    if bet["id"] in state["events"]:
-        return False
-    recent = [value for value in state["events"].values() if value["claimed"] > now - 3600]
-    if len(recent) >= cap or any(value["game"] == bet["game"]["slug"] and
-                                value["claimed"] > now - cooldown for value in recent):
-        return False
-    state["events"][bet["id"]] = {"game": bet["game"]["slug"], "claimed": now, "status": "reserved"}
-    return True
-
-
-def big_win_message(bet, checked):
-    casino = html.escape(str((bet.get("casino") or {}).get("name", "æªç¥èµåº"))[:80])
-    stamp = datetime.fromtimestamp(timestamp(bet), timezone.utc)
-    checked_at = datetime.fromtimestamp(checked, timezone.utc)
-    return ("<b>ð å¤§é¢æ´¾å½©è®°å½ Â· å®æ¶æ£æ¥</b>\n\n" + bot.game_title(bet["game"]) +
-            f"\nèµåºï¼{casino}\nææ³¨ï¼${bet['amount_usd']:,.2f}\n"
-            f"æ´¾å½©ï¼${bet['payout_usd']:,.2f}\n"
-            f"æ¬ç¬åèµ¢ï¼${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
-            f"åæ°ï¼{bet['multiplier']:,.2f}x\n"
-            f"äºä»¶ï¼{stamp:%m-%d %H:%M:%S} UTC\n"
-            f"æ£æ¥ï¼{checked_at:%m-%d %H:%M:%S} UTC\n\n"
-            "åå²è§æµè®°å½ï¼ä¸é¢æµä¸ä¸æ¬¡ç»æï¼è®¡åæ¯5åéæ£æ¥ï¼å¯è½å»¶è¿ã\n"
-            '<a href="https://gambatracker.com/big-wins">Data: gambatracker.com</a>')
-
-
-def send_messages(messages, token, channel_id):
-    for index, message in enumerate(messages):
-        if bot.utf16len(message) >= 4096:
-            raise bot.BotError("æ¶æ¯è¿é¿ï¼å·²åæ­¢åé")
-        if index:
-            time.sleep(1.1)
-        bot.telegram(token, "sendMessage", {
-            "chat_id": channel_id, "text": message, "parse_mode": "HTML",
-            "link_preview_options": {"is_disabled": True}})
-
-
-def run(store, config, send=False, now=None):
-    now = time.time() if now is None else now
-    state = store.load(now)
-    minimum = float(os.environ.get("BIG_WIN_MIN_PAYOUT_USD", "10000"))
-    if not bot.number(minimum) or minimum <= 0:
-        raise bot.BotError("æ´¾å½©éé¢é¨æ§æ æ")
-    try:
-        bets, complete = fetch_bets(now, state["last_check"])
-    except bot.BotError:
-        bets, complete = [], False
-        print("å¤§é¢æ¥å£è¯»åå¤±è´¥ï¼æ¬æ¬¡è·³è¿ï¼ä¸åé¢éåå¼å¸¸éç¥")
-    candidates = sorted((b for b in bets if eligible(b, now, minimum)),
-                        key=timestamp, reverse=True)
-    due = state["hourly_slot"] is None or int(now // 3600) > state["hourly_slot"]
-    hourly = []
-    if due or not send:
-        try:
-            snapshots = [(window, bot.get_rows(window, config["fetch_limit"]), datetime.now(timezone.utc))
-                         for window in ("10m", "1h", "24h")]
-            hourly = bot.make_hourly_messages(snapshots, config)
-        except bot.BotError:
-            print("RTPè¯»åå¤±è´¥ï¼æ¬æ¬¡è·³è¿ï¼ä¸ä¸æ¬¡æ£æ¥å¯éè¯ï¼ä¸åé¢éåå¼å¸¸éç¥")
-    preview = Path("preview")
-    preview.mkdir(exist_ok=True)
-    for index, message in enumerate(hourly, 1):
-        (preview / f"hourly-{index}.html").write_text(message, encoding="utf-8")
-    if not send:
-        count = 0
-        for bet in candidates:
-            if claim_bet(state, bet, now):
-                count += 1
-                (preview / f"big-win-{count}.html").write_text(big_win_message(bet, now), encoding="utf-8")
-        print(f"ä»é¢è§ï¼{len(hourly)}æ¡RTPæ±æ»ã{count}æ¡å¤§é¢è®°å½ï¼æ²¡æåéãæ²¡æåå¥GitHubå»éç¶æ")
-        return
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-    if not re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", token):
-        raise bot.BotError("è¯·éç½® TELEGRAM_BOT_TOKEN Secret")
-    channel_id = bot.check_channel(token, config)
-    if due and hourly:
-        state["hourly_slot"] = int(now // 3600)
-        store.save(state)  # Remote checkpoint BEFORE Telegram, including uncertain outcomes.
-        try:
-            send_messages(hourly, token, channel_id)
-        except bot.BotError:
-            print("RTPåéå¤±è´¥æç»ææªç¥ï¼å·²å ä½é¿åéåï¼ä¸åå¼å¸¸éç¥")
-    for bet in candidates:
-        # Recheck after fetching/pushing; never post records older than the window.
-        current = time.time()
-        if not eligible(bet, current, minimum) or not claim_bet(state, bet, current):
-            continue
-        store.save(state)
-        try:
-            send_messages([big_win_message(bet, now)], token, channel_id)
-            state["events"][bet["id"]]["status"] = "sent"
-            print("å·²æ¨é1æ¡å¤§é¢è®°å½")
-        except bot.BotError:
-            state["events"][bet["id"]]["status"] = "unknown_or_failed"
-            print("å¤§é¢è®°å½åéå¤±è´¥æç»ææªç¥ï¼ä¸éè¯ãä¸åå¼å¸¸éç¥")
-        store.save(state)
-        time.sleep(1.1)
-    if complete:
-        state["last_check"] = now
-    store.save(state)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--send", action="store_true")
-    parser.add_argument("--github", action="store_true", help="persist state in a separate GitHub branch")
-    args = parser.parse_args()
-    config = json.loads(Path("config.json").read_text())
-    bot.validate_config(config)
-    config["channel"] = os.environ.get("TELEGRAM_CHAT_ID", "").strip() or config["channel"]
-    run(StateStore(github=args.github), config, send=args.send)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except (bot.BotError, ValueError, KeyError, OSError, subprocess.SubprocessError) as exc:
-        print(str(exc) if isinstance(exc, bot.BotError) else f"è¿è¡å¤±è´¥ï¼{type(exc).__name__}ï¼ä¸åé¢éåå¼å¸¸éç¥", file=sys.stderr)
-        sys.exit(1)
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify parser and formatting
+        run: python -m unittest discover -s tests -v
+      - name: Fetch and publish or preview
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: '@rtpbodon'
+          GAMBATRACKER_API_KEY: ${{ secrets.GAMBATRACKER_API_KEY }}
+          SHOULD_SEND: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'schedule' && vars.ENABLE_PUSH == 'true') }}
+        run: |
+          if [ "$SHOULD_SEND" = "true" ]; then
+            python github_poller.py --github --send
+          else
+            python github_poller.py --github
+          fi
+      - name: Save preview
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtp-preview
+          path: preview/*.html
+          retention-days: 3
