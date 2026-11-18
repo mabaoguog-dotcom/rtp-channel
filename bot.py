@@ -337,7 +337,7 @@ def make_messages(snapshots, config):
     if not any_games:
         return []
     blocks.extend(["观测样本可能不完整；历史 RTP 不预测下一次结果。",
-                   '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
+                   '实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>'])
     return split_messages(blocks)
 
 
@@ -354,7 +354,7 @@ def split_messages(blocks):
     if current:
         messages.append(current)
     if len(messages) > 1:
-        attribution = '\n\n<a href="https://gambatracker.com">Data: gambatracker.com</a>'
+        attribution = '\n\n实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>'
         messages = [m + attribution for m in messages]
     return messages
 
@@ -388,7 +388,7 @@ def make_hourly_messages(snapshots, config):
     if not active:
         blocks.append("本次返回列表中暂无匹配的老虎机数据。")
     blocks.extend(["公开观测样本可能不完整；历史 RTP 不预测下一次结果。",
-                   '<a href="https://gambatracker.com/developers">Data: gambatracker.com</a>'])
+                   '实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>'])
     return split_messages(blocks)
 
 
