@@ -1,0 +1,22 @@
+name: Send one fresh RTP snapshot
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rtp-channel
+  cancel-in-progress: false
+jobs:
+  send-one:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch latest data and send exactly one post
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GAMBATRACKER_API_KEY: ${{ secrets.GAMBATRACKER_API_KEY }}
+        run: python manual_snapshot.py
