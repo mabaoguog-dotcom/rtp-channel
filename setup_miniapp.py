@@ -34,19 +34,22 @@ def main():
     bot = api("getMe")
     if bot.get("username", "").lower() != "rtpzsbot":
         raise SystemExit("Configured token does not belong to the expected bot.")
-    api("setMyName", {"name": "RTP助手"})
+    if api("getMyName").get("name") != "RTP助手":
+        api("setMyName", {"name": "RTP助手"})
     channel = api("getChat", {"chat_id": "@rtpbodon"})
     member = api("getChatMember", {"chat_id": channel["id"], "user_id": bot["id"]})
     if member.get("status") != "creator" and not (member.get("status") == "administrator" and member.get("can_post_messages") is True):
         raise SystemExit("New bot needs channel administrator permission to post messages.")
     print("Verified new bot channel posting permission.")
-    api("setMyCommands", {"commands": [
+    commands = [
         {"command":"start","description":"显示聊天菜单"},
         {"command":"rtp","description":"选择周期查询RTP"},
         {"command":"first","description":"查询活跃第一名"},
         {"command":"wins","description":"查询最新大额派彩"},
         {"command":"search","description":"搜索中文或英文游戏名"},
-        {"command":"help","description":"使用说明"}]})
+        {"command":"help","description":"使用说明"}]
+    if api("getMyCommands") != commands:
+        api("setMyCommands", {"commands": commands})
     wanted_commands = {"start", "rtp", "first", "wins", "search", "help"}
     for attempt in range(8):
         if {c["command"] for c in api("getMyCommands")} == wanted_commands:
@@ -56,7 +59,9 @@ def main():
     else:
         raise SystemExit("Chat command verification failed.")
     button = {"type": "web_app", "text": "打开数据站", "web_app": {"url": APP_URL}}
-    api("setChatMenuButton", {"menu_button": button})
+    current = api("getChatMenuButton")
+    if current != button:
+        api("setChatMenuButton", {"menu_button": button})
     menu_verified = False
     for attempt in range(8):
         current = api("getChatMenuButton")
@@ -73,10 +78,11 @@ def main():
                    "3. 在小程序内搜索游戏或选择底部分类。\n\n"
                    "频道：@rtpbodon\n公开历史样本，不预测下一次结果。")
     short = "查询老虎机RTP、游戏比较、月报和爆奖记录。进入聊天后，点击左下角「打开数据站」使用小程序。频道：@rtpbodon"
-    api("setMyDescription", {"description": description})
-    api("setMyDescription", {"description": description, "language_code": "zh"})
-    api("setMyShortDescription", {"short_description": short})
-    api("setMyShortDescription", {"short_description": short, "language_code": "zh"})
+    for language in ({}, {"language_code":"zh"}):
+        if api("getMyDescription", language).get("description") != description:
+            api("setMyDescription", {"description":description, **language})
+        if api("getMyShortDescription", language).get("short_description") != short:
+            api("setMyShortDescription", {"short_description":short, **language})
     if api("getMyDescription").get("description") != description:
         raise SystemExit("Bot description verification failed.")
     if api("getMyShortDescription").get("short_description") != short:
