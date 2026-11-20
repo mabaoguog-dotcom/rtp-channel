@@ -1,0 +1,21 @@
+name: Update historical bot footer
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rtp-channel
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Replace historical bot footer
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: python migrate_footers.py
