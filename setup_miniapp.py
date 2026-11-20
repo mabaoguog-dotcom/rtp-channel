@@ -37,6 +37,7 @@ def main():
     api("setChatMenuButton", {"menu_button": button})
     current = api("getChatMenuButton")
     if current.get("type") != "web_app" or current.get("web_app", {}).get("url", "").rstrip("/") != APP_URL.rstrip("/"):
+        print("Returned menu:", json.dumps(current, ensure_ascii=False))
         raise SystemExit("Telegram menu verification failed.")
     description = ("RTP助手｜老虎机公开数据查询\n\n"
                    "可查看近10分钟、1小时、24小时等周期的观测RTP，比较2–3款老虎机，"
