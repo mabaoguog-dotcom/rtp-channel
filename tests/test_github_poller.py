@@ -138,6 +138,9 @@ class PollTests(unittest.TestCase):
         poll.run(store, {"fetch_limit": 200}, send=True, now=2000000000)
         poll.run(store, {"fetch_limit": 200}, send=True, now=2000000001)
         self.assertEqual(telegram.call_count, 1)
+        self.assertEqual(telegram.call_args.args[1], "sendPhoto")
+        self.assertTrue(telegram.call_args.args[2]["photo"].startswith(b"\xff\xd8"))
+        self.assertIn("第1名", telegram.call_args.args[2]["caption"])
         poll.run(store, {"fetch_limit": 200}, send=True, now=2000003600)
         self.assertEqual(telegram.call_count, 2)
 

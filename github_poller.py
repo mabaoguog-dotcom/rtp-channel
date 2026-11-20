@@ -12,7 +12,7 @@ import time
 from urllib.parse import urlencode
 
 import bot
-from game_poster import prepare_poster
+from game_poster import prepare_poster, prepare_hourly_poster
 
 STATE_REF = "refs/heads/rtp-bot-state"
 
@@ -227,6 +227,9 @@ def run(store, config, send=False, now=None):
             print("RTP读取失败，本次跳过，下一次检查可重试；不向频道发异常通知")
     preview = Path("preview")
     preview.mkdir(exist_ok=True)
+    hourly_poster = prepare_hourly_poster(snapshots, config) if hourly else None
+    if hourly_poster:
+        (preview / "hourly-1.jpg").write_bytes(hourly_poster)
     for index, message in enumerate(hourly, 1):
         (preview / f"hourly-{index}.html").write_text(message, encoding="utf-8")
     if not send:
@@ -246,7 +249,11 @@ def run(store, config, send=False, now=None):
         state["hourly_slot"] = int(now // 3600)
         store.save(state)  # Remote checkpoint BEFORE Telegram, including uncertain outcomes.
         try:
-            send_messages(hourly, token, channel_id)
+            caption = hourly[0]
+            if bot.utf16len(html.unescape(re.sub(r"<[^>]+>", "", caption))) > 1024:
+                raise bot.BotError("每小时图片说明过长")
+            bot.telegram(token, "sendPhoto", {"chat_id": channel_id, "photo": hourly_poster,
+                                               "caption": caption, "parse_mode": "HTML"})
         except bot.BotError:
             print("RTP发送失败或结果未知，已占位避免重发；不发异常通知")
     for bet in candidates:

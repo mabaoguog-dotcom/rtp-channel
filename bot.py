@@ -360,13 +360,18 @@ def split_messages(blocks):
     return messages
 
 
+def hourly_first(snapshots, config):
+    rows = next((rows for window, rows, _ in snapshots if window == "24h"), [])
+    wanted = set(config.get("game_slugs", []))
+    active = [row for row in rows if chinese_name(row["game"]) and
+              (not wanted or row["game"]["slug"] in wanted)]
+    return max(active, key=lambda row: row["n"], default=None)
+
+
 def make_hourly_messages(snapshots, config):
     tables = {w: {r["game"]["slug"]: r for r in rows} for w, rows, _ in snapshots}
-    active = sorted(tables.get("24h", {}).values(), key=lambda r: r["n"], reverse=True)
-    wanted = set(config.get("game_slugs", []))
-    if wanted:
-        active = [r for r in active if r["game"]["slug"] in wanted]
-    active = [r for r in active if chinese_name(r["game"])]
+    first = hourly_first(snapshots, config)
+    active = [first] if first else []
     if not active:
         return []
     blocks = ["<b>每小时 · 活跃老虎机第1名</b>",
