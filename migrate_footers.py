@@ -5,7 +5,8 @@ import json
 import os
 import re
 import time
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 import bot
 
@@ -47,6 +48,33 @@ def replacements(page):
     return found
 
 
+def edit_footer(token, method, payload):
+    # Editing the same post to the same contents is idempotent. Only retry an
+    # explicit Telegram rate-limit rejection; do not retry unknown outcomes.
+    request = Request('https://api.telegram.org/bot' + token + '/' + method,
+                      data=json.dumps(payload).encode(), headers={'Content-Type':'application/json'})
+    for attempt in range(3):
+        try:
+            with urlopen(request, timeout=30) as response:
+                answer = json.load(response)
+            if answer.get('ok'):
+                return
+            raise bot.BotError('Telegram未确认历史帖子修改')
+        except HTTPError as exc:
+            try: error = json.load(exc)
+            except (ValueError, OSError): error = {}
+            if exc.code == 400 and 'message is not modified' in error.get('description', ''):
+                return
+            if exc.code == 429 and attempt < 2:
+                delay = min(60, max(1, int(error.get('parameters', {}).get('retry_after', 30))))
+                print('Telegram限流，等待后继续', flush=True)
+                time.sleep(delay)
+                continue
+            raise bot.BotError('历史帖子修改请求被拒绝，HTTP ' + str(exc.code)) from None
+        except (URLError, OSError, ValueError):
+            raise bot.BotError('历史帖子修改结果未知，未自动重试') from None
+
+
 def main():
     token = os.environ['TELEGRAM_BOT_TOKEN']
     me = bot.telegram(token, 'getMe', {})
@@ -73,13 +101,13 @@ def main():
         payload['caption' if item['photo'] else 'text'] = item['content']
         if not item['photo']: payload['link_preview_options']={'is_disabled':True}
         try:
-            bot.telegram(token,method,payload)
+            edit_footer(token,method,payload)
             succeeded += 1
             print('已更新帖子',identity,flush=True)
         except bot.BotError:
             failed.append(identity)
             print('未能更新帖子',identity,flush=True)
-        time.sleep(1.1)
+        time.sleep(3.2)
     print(json.dumps({'updated':succeeded,'failed':failed},ensure_ascii=False))
     if failed: raise bot.BotError('部分历史帖子无法修改；未删除或重新发布')
 
