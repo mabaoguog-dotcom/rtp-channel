@@ -79,6 +79,9 @@ def make_poster(bet, artwork=None):
         text((x, 483), value, 33, width=350)
     text((480, 564), "本笔净赢", 21, "#92968f")
     text((480, 602), money(bet["payout_usd"] - bet["amount_usd"]), 33, "#62d6a2", width=735)
+    casino = str((bet.get("casino") or {}).get("name") or "未知赌场")
+    casino = " ".join(casino.split())[:100]
+    text((480, 663), "赌场：" + casino, 24, "#aeb2ab", width=740)
     stamp = bot.datetime.fromisoformat(bet["ts"].replace("Z", "+00:00"))
     text((48, 724), "事件时间 " + bot.beijing_time(stamp) + " 北京时间", 18, "#92968f")
     text((48, 760), "公开观测历史记录，不预测下一次结果。", 16, "#92968f")
