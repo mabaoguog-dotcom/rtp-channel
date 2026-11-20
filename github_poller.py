@@ -166,7 +166,7 @@ def big_win_message(bet, checked):
             f"事件：{bot.beijing_time(stamp)} 北京时间\n"
             f"检查：{bot.beijing_time(checked_at)} 北京时间\n\n"
             "历史观测记录，不预测下一次结果；计划每5分钟检查，可能延迟。\n"
-            '实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>')
+            '实时RTP查询机器人：<a href="https://t.me/RTPZSBOT">@RTPZSBOT</a>')
 
 
 def send_messages(messages, token, channel_id):
@@ -191,7 +191,7 @@ def big_win_caption(bet, checked):
             f"\n事件：{bot.beijing_time(datetime.fromtimestamp(timestamp(bet), timezone.utc))} 北京时间"
             f"\n检查：{bot.beijing_time(datetime.fromtimestamp(checked, timezone.utc))} 北京时间"
             "\n\n历史观测记录，不预测下一次结果。"
-            '\n实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>')
+            '\n实时RTP查询机器人：<a href="https://t.me/RTPZSBOT">@RTPZSBOT</a>')
 
 
 def send_big_win(bet, checked, token, channel_id):

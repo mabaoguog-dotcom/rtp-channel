@@ -118,7 +118,7 @@ class PollTests(unittest.TestCase):
         text = poll.big_win_message(bet(), 2000000010)
         self.assertIn("定时检查", text)
         self.assertNotIn("实时", text.split("\n实时RTP查询机器人：", 1)[0])
-        self.assertIn('实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>', text)
+        self.assertIn('实时RTP查询机器人：<a href="https://t.me/RTPZSBOT">@RTPZSBOT</a>', text)
         self.assertNotIn("DO_NOT_PUBLISH", text)
         self.assertIn("甜入心扉 2500", text)
         self.assertIn("$19,900.00", text)

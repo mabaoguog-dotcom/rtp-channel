@@ -82,7 +82,7 @@ def make_poster(bet, artwork=None):
     stamp = bot.datetime.fromisoformat(bet["ts"].replace("Z", "+00:00"))
     text((48, 724), "事件时间 " + bot.beijing_time(stamp) + " 北京时间", 18, "#92968f")
     text((48, 760), "公开观测历史记录，不预测下一次结果。", 16, "#92968f")
-    text((905, 746), "@RTPzhushouBOT", 22, "#f2b134")
+    text((905, 746), "@RTPZSBOT", 22, "#f2b134")
     output = BytesIO()
     image.save(output, format="JPEG", quality=92, optimize=True)
     return output.getvalue()

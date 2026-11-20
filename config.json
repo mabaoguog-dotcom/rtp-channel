@@ -1,6 +1,6 @@
 {
   "channel": "@rtpbodon",
-  "expected_bot": "RTPzhushouBOT",
+  "expected_bot": "RTPZSBOT",
   "windows": ["10m", "1h", "24h", "7d", "30d", "all"],
   "top_n": 3,
   "fetch_limit": 200,
