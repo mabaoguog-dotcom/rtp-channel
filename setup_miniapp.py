@@ -16,11 +16,17 @@ def main():
             data=json.dumps(data or {}).encode(),
             headers={"Content-Type": "application/json"},
         )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                result = json.load(response)
-        except Exception:
-            raise SystemExit("Telegram API request failed; token omitted from logs.") from None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    result = json.load(response)
+                break
+            except Exception:
+                # All calls in this setup helper are idempotent settings or reads.
+                if attempt == 2:
+                    raise SystemExit("Telegram settings request failed; token omitted from logs.") from None
+                print("Retrying Telegram setting/read:", method, flush=True)
+                time.sleep(3)
         if not result.get("ok"):
             raise SystemExit("Telegram rejected the menu operation.")
         return result["result"]
