@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: rtp-channel
+  cancel-in-progress: false
+
 jobs:
   menu:
     runs-on: ubuntu-latest
