@@ -1,6 +1,7 @@
 """Configure the bot's private-chat Mini App menu; credentials stay in Actions."""
 import json
 import os
+import time
 import urllib.request
 
 APP_URL = "https://rtpbodon-data.pluckyegret35.chatgpt.site"
@@ -35,10 +36,13 @@ def main():
     print("Verified new bot channel posting permission.")
     button = {"type": "web_app", "text": "打开数据站", "web_app": {"url": APP_URL}}
     api("setChatMenuButton", {"menu_button": button})
-    current = api("getChatMenuButton")
-    if current.get("type") != "web_app" or current.get("web_app", {}).get("url", "").rstrip("/") != APP_URL.rstrip("/"):
-        print("Returned menu:", json.dumps(current, ensure_ascii=False))
-        raise SystemExit("Telegram menu verification failed.")
+    menu_verified = False
+    for attempt in range(8):
+        current = api("getChatMenuButton")
+        if current.get("type") == "web_app" and current.get("web_app", {}).get("url", "").rstrip("/") == APP_URL.rstrip("/"):
+            menu_verified = True
+            break
+        time.sleep(2)
     description = ("RTP助手｜老虎机公开数据查询\n\n"
                    "可查看近10分钟、1小时、24小时等周期的观测RTP，比较2–3款老虎机，"
                    "浏览月报、最大爆奖与最大倍数记录。频道每小时发布活跃排行第1名，"
@@ -57,6 +61,9 @@ def main():
     if api("getMyShortDescription").get("short_description") != short:
         raise SystemExit("Bot short description verification failed.")
     print("Verified bot introduction and opening instructions.")
+    if not menu_verified:
+        print("Returned menu:", json.dumps(current, ensure_ascii=False))
+        raise SystemExit("Telegram menu verification failed; introduction saved.")
     print("Verified @" + bot["username"] + " menu: 打开数据站 -> " + APP_URL)
 
 
