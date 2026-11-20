@@ -26,6 +26,31 @@ def rtp_row():
 
 
 class PollTests(unittest.TestCase):
+    def test_hourly_keeps_only_most_active_verified_game(self):
+        first = rtp_row()
+        second = copy.deepcopy(first)
+        slug, record = next((s, r) for s, r in bot.ZH_NAMES.items() if s != first["game"]["slug"])
+        second["game"].update(slug=slug, name=record["en"])
+        second["n"] = 1
+        second["rtp"] = 99
+        stamp = datetime.now(timezone.utc)
+        text = "\n".join(bot.make_hourly_messages([(w, [second, first], stamp) for w in ("10m", "1h", "24h")], {}))
+        self.assertIn(first["game"]["name"], text)
+        self.assertNotIn(second["game"]["name"], text)
+
+    @patch("bot.urlopen")
+    def test_photo_upload_preserves_image_and_chinese_caption(self, request):
+        from io import BytesIO
+        request.return_value = BytesIO(b'{"ok":true,"result":{"message_id":7}}')
+        jpeg = b"\xff\xd8test-image\xff\xd9"
+        result = bot.telegram("123:test", "sendPhoto", {"chat_id": "@test", "photo": jpeg, "caption": "大额派彩"})
+        self.assertEqual(result["message_id"], 7)
+        req = request.call_args.args[0]
+        self.assertIn("multipart/form-data; boundary=", req.get_header("Content-type"))
+        self.assertIn(jpeg, req.data)
+        self.assertIn("大额派彩".encode(), req.data)
+        request.assert_called_once()
+
     def test_unknown_chinese_name_is_excluded_from_big_win(self):
         b = bet()
         b["game"].update(slug="unknown-game", name="Unknown Game")
@@ -132,7 +157,9 @@ class PollTests(unittest.TestCase):
         poll.run(store, {"fetch_limit": 200}, send=True, now=2000000000)
         self.assertIsNone(store.state["hourly_slot"])
         self.assertEqual(telegram.call_count, 1)
-        self.assertIn("大额派彩记录", telegram.call_args.args[2]["text"])
+        self.assertEqual("sendPhoto", telegram.call_args.args[1])
+        self.assertIn("大额派彩记录", telegram.call_args.args[2]["caption"])
+        self.assertTrue(telegram.call_args.args[2]["photo"].startswith(b"\xff\xd8"))
 
     @patch("github_poller.time.time", return_value=2000000000)
     @patch("github_poller.time.sleep")

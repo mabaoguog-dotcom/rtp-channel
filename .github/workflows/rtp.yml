@@ -26,8 +26,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install poster dependencies
+        run: python -m pip install -r requirements.txt
       - name: Verify parser and formatting
         run: python -m unittest discover -s tests -v
+      - name: Remove isolated test preview artifacts
+        run: python -c "import shutil; shutil.rmtree('preview', ignore_errors=True)"
       - name: Fetch and publish or preview
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -45,5 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rtp-preview
-          path: preview/*.html
+          path: |
+            preview/*.html
+            preview/*.jpg
           retention-days: 3

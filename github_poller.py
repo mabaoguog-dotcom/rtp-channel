@@ -12,6 +12,7 @@ import time
 from urllib.parse import urlencode
 
 import bot
+from game_poster import prepare_poster
 
 STATE_REF = "refs/heads/rtp-bot-state"
 
@@ -179,6 +180,29 @@ def send_messages(messages, token, channel_id):
             "link_preview_options": {"is_disabled": True}})
 
 
+def big_win_caption(bet, checked):
+    record = bot.chinese_name(bet["game"])
+    title = html.escape(record["zh"] + "（" + str(bet["game"].get("name", ""))[:100] + "）")
+    return ("<b>🏆 大额派彩记录</b>\n\n" + title +
+            f"\n赌场：{html.escape(str((bet.get('casino') or {}).get('name', '未知赌场'))[:60])}"
+            f"\n投注：${bet['amount_usd']:,.2f}\n派彩：${bet['payout_usd']:,.2f}"
+            f"\n本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}"
+            f"\n倍数：{bet['multiplier']:,.2f}x"
+            f"\n事件：{bot.beijing_time(datetime.fromtimestamp(timestamp(bet), timezone.utc))} 北京时间"
+            f"\n检查：{bot.beijing_time(datetime.fromtimestamp(checked, timezone.utc))} 北京时间"
+            "\n\n历史观测记录，不预测下一次结果。"
+            '\n实时RTP查询机器人：<a href="https://t.me/RTPzhushouBOT">@RTPzhushouBOT</a>')
+
+
+def send_big_win(bet, checked, token, channel_id):
+    caption = big_win_caption(bet, checked)
+    if bot.utf16len(caption) > 1000:
+        raise bot.BotError("图片说明过长，未发送")
+    poster = prepare_poster(bet)
+    bot.telegram(token, "sendPhoto", {"chat_id": channel_id, "photo": poster,
+                                      "caption": caption, "parse_mode": "HTML"})
+
+
 def run(store, config, send=False, now=None):
     now = time.time() if now is None else now
     state = store.load(now)
@@ -210,7 +234,8 @@ def run(store, config, send=False, now=None):
         for bet in candidates:
             if claim_bet(state, bet, now):
                 count += 1
-                (preview / f"big-win-{count}.html").write_text(big_win_message(bet, now), encoding="utf-8")
+                (preview / f"big-win-{count}.html").write_text(big_win_caption(bet, now), encoding="utf-8")
+                (preview / f"big-win-{count}.jpg").write_bytes(prepare_poster(bet))
         print(f"仅预览：{len(hourly)}条RTP汇总、{count}条大额记录；没有发送、没有写入GitHub去重状态")
         return
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
@@ -231,7 +256,7 @@ def run(store, config, send=False, now=None):
             continue
         store.save(state)
         try:
-            send_messages([big_win_message(bet, now)], token, channel_id)
+            send_big_win(bet, now, token, channel_id)
             state["events"][bet["id"]]["status"] = "sent"
             print("已推送1条大额记录")
         except bot.BotError:

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import html
 import json
 import math
+import secrets
 import os
 from pathlib import Path
 import re
@@ -368,12 +369,12 @@ def make_hourly_messages(snapshots, config):
     active = [r for r in active if chinese_name(r["game"])]
     if not active:
         return []
-    blocks = ["<b>每小时 · 活跃老虎机 RTP</b>",
-              "从近24小时列表中，仅选中文名已核实的活跃游戏，最多5款，非全站完整排名。",
+    blocks = ["<b>每小时 · 活跃老虎机第1名</b>",
+              "从近24小时列表中，仅选中文名已核实的活跃游戏，按投注笔数仅取第1名，非全站完整排名。",
               "中文名可点击查看出处；英文名链接为 RTP 页面。"]
     blocks.append("抓取时间（北京时间，UTC+8）：\n" + "\n".join(
         f"{LABELS[w]} {beijing_time(fetched)}" for w, _, fetched in snapshots))
-    for row in active[:5]:
+    for row in active[:1]:
         slug = row["game"]["slug"]
         lines = [game_title(row["game"]), f"官方 RTP：{pct(row.get('official_rtp'))}"]
         for window in ("10m", "1h", "24h"):
@@ -393,7 +394,25 @@ def make_hourly_messages(snapshots, config):
 
 
 def telegram(token, method, payload):
-    answer = request_json(f"https://api.telegram.org/bot{token}/{method}", payload)
+    if method == "sendPhoto" and isinstance(payload.get("photo"), bytes):
+        boundary = "rtp-" + secrets.token_hex(16)
+        parts = []
+        for key, value in payload.items():
+            head = f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"'
+            if key == "photo":
+                parts.append((head + '; filename="game-poster.jpg"\r\nContent-Type: image/jpeg\r\n\r\n').encode() + value + b"\r\n")
+            else:
+                parts.append((head + "\r\n\r\n" + str(value) + "\r\n").encode())
+        raw = b"".join(parts) + f"--{boundary}--\r\n".encode()
+        req = Request(f"https://api.telegram.org/bot{token}/{method}", data=raw,
+                      headers={"Content-Type": "multipart/form-data; boundary=" + boundary})
+        try:
+            with urlopen(req, timeout=30) as response:
+                answer = json.load(response)
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError):
+            raise BotError("Telegram图片发送失败或结果未知；未自动重试") from None
+    else:
+        answer = request_json(f"https://api.telegram.org/bot{token}/{method}", payload)
     if not isinstance(answer, dict) or answer.get("ok") is not True:
         raise BotError("Telegram 拒绝请求，请检查 Token 和频道权限")
     return answer["result"]
@@ -428,7 +447,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--send", action="store_true", help="实际发送；默认只生成预览")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--hourly", action="store_true", help="5款游戏的10m/1h/24h对照汇总")
+    parser.add_argument("--hourly", action="store_true", help="活跃第1名的10m/1h/24h对照汇总")
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
     validate_config(config)
