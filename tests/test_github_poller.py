@@ -129,7 +129,8 @@ class PollTests(unittest.TestCase):
     @patch("github_poller.fetch_bets", return_value=([], True))
     @patch("bot.get_rows", return_value=[rtp_row()])
     @patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "123:test"})
-    def test_hourly_is_sent_once_across_poll_runs(self, rows, fetch, telegram, channel, sleep):
+    @patch("github_poller.prepare_hourly_poster", return_value=b"\xff\xd8poster")
+    def test_hourly_is_sent_once_across_poll_runs(self, poster, rows, fetch, telegram, channel, sleep):
         class Store:
             def __init__(self): self.state = poll.blank_state(2000000000)
             def load(self, now): return copy.deepcopy(self.state)

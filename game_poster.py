@@ -96,39 +96,15 @@ def prepare_poster(bet):
 
 
 def prepare_hourly_poster(snapshots, config):
+    """Use only the first game's original cover; keep RTP facts in the caption."""
     row = bot.hourly_first(snapshots, config)
     if row is None:
-        raise bot.BotError("没有可用的第一名游戏")
-    game = row["game"]
-    artwork = cover(game)
-    image = Image.new("RGB", (1280, 800), "#0c0e10")
-    draw = ImageDraw.Draw(image)
-
-    def text(x, y, value, size=26, color="#eeeeea", width=730):
-        while size > 16 and draw.textlength(str(value), font=ImageFont.truetype(str(FONT), size)) > width:
-            size -= 1
-        draw.text((x, y), str(value), font=ImageFont.truetype(str(FONT), size), fill=color)
-
-    text(48, 30, "RTP助手 · 每小时活跃第1名", 36, "#f2b134", 1180)
-    draw.line((48, 100, 1232, 100), fill="#34383e", width=2)
-    draw.rounded_rectangle((48, 135, 432, 685), radius=18, fill="#171a1d")
-    if artwork is not None:
-        art = ImageOps.contain(artwork, (348, 510), Image.Resampling.LANCZOS)
-        image.paste(art, (66 + (348 - art.width) // 2, 155 + (510 - art.height) // 2))
-    else:
-        text(95, 365, "游戏封面暂无", 30, width=300)
-    text(480, 132, bot.chinese_name(game)["zh"], 38)
-    text(480, 195, game["name"], 25, "#92968f")
-    for index, (window, rows, fetched) in enumerate(snapshots):
-        item = next((r for r in rows if r["game"]["slug"] == game["slug"]), None)
-        y = 280 + index * 123
-        text(480, y, bot.LABELS[window], 24, "#92968f")
-        text(695, y - 12, bot.pct(item["rtp"]) if item else "暂无数据", 46, "#f2b134", 530)
-        if item:
-            text(695, y + 48, f"{int(item['n']):,}笔 · " + ("样本达标" if item.get("enough_sample") is True else "样本不足"), 19, "#92968f", 530)
-    text(48, 710, "按近24小时投注笔数排名，仅限中文名已核实游戏", 20, "#92968f", 1180)
-    text(48, 752, "数据时间 " + bot.beijing_time(snapshots[-1][2]) + " 北京时间", 18, "#92968f", 850)
-    text(1010, 748, "@RTPZSBOT", 23, "#f2b134", 230)
+        return None
+    artwork = cover(row["game"])
+    if artwork is None:
+        return None
+    # Telegram photo dimensions are bounded without adding text or another game's art.
+    artwork.thumbnail((2560, 2560), Image.Resampling.LANCZOS)
     out = BytesIO()
-    image.save(out, format="JPEG", quality=92, optimize=True)
+    artwork.save(out, format="JPEG", quality=95, optimize=True)
     return out.getvalue()

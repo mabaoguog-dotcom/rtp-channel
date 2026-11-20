@@ -252,8 +252,11 @@ def run(store, config, send=False, now=None):
             caption = hourly[0]
             if bot.utf16len(html.unescape(re.sub(r"<[^>]+>", "", caption))) > 1024:
                 raise bot.BotError("每小时图片说明过长")
-            bot.telegram(token, "sendPhoto", {"chat_id": channel_id, "photo": hourly_poster,
-                                               "caption": caption, "parse_mode": "HTML"})
+            if hourly_poster:
+                bot.telegram(token, "sendPhoto", {"chat_id": channel_id, "photo": hourly_poster,
+                                                   "caption": caption, "parse_mode": "HTML"})
+            else:
+                send_messages(hourly, token, channel_id)
         except bot.BotError:
             print("RTP发送失败或结果未知，已占位避免重发；不发异常通知")
     for bet in candidates:
