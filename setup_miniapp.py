@@ -34,6 +34,21 @@ def main():
     if member.get("status") != "creator" and not (member.get("status") == "administrator" and member.get("can_post_messages") is True):
         raise SystemExit("New bot needs channel administrator permission to post messages.")
     print("Verified new bot channel posting permission.")
+    api("setMyCommands", {"commands": [
+        {"command":"start","description":"显示聊天菜单"},
+        {"command":"rtp","description":"选择周期查询RTP"},
+        {"command":"first","description":"查询活跃第一名"},
+        {"command":"wins","description":"查询最新大额派彩"},
+        {"command":"search","description":"搜索中文或英文游戏名"},
+        {"command":"help","description":"使用说明"}]})
+    wanted_commands = {"start", "rtp", "first", "wins", "search", "help"}
+    for attempt in range(8):
+        if {c["command"] for c in api("getMyCommands")} == wanted_commands:
+            print("Verified six chat commands.")
+            break
+        time.sleep(2)
+    else:
+        raise SystemExit("Chat command verification failed.")
     button = {"type": "web_app", "text": "打开数据站", "web_app": {"url": APP_URL}}
     api("setChatMenuButton", {"menu_button": button})
     menu_verified = False

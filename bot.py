@@ -277,6 +277,12 @@ def normalized_title(value):
     return " ".join(str(value).replace("™", "").replace("®", "").split()).casefold()
 
 
+# Share the verified, source-backed name dictionary with chat and Mini App search.
+_shared_names = Path(__file__).with_name("game_names.json")
+if _shared_names.exists():
+    ZH_NAMES.update(json.loads(_shared_names.read_text(encoding="utf-8")))
+
+
 def chinese_name(game):
     record = ZH_NAMES.get(game.get("slug"))
     if not record:
@@ -407,7 +413,7 @@ def telegram(token, method, payload):
             if key == "photo":
                 parts.append((head + '; filename="game-poster.jpg"\r\nContent-Type: image/jpeg\r\n\r\n').encode() + value + b"\r\n")
             else:
-                parts.append((head + "\r\n\r\n" + str(value) + "\r\n").encode())
+                parts.append((head + "\r\n\r\n" + (json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value)) + "\r\n").encode())
         raw = b"".join(parts) + f"--{boundary}--\r\n".encode()
         req = Request(f"https://api.telegram.org/bot{token}/{method}", data=raw,
                       headers={"Content-Type": "multipart/form-data; boundary=" + boundary})

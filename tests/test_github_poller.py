@@ -43,12 +43,13 @@ class PollTests(unittest.TestCase):
         from io import BytesIO
         request.return_value = BytesIO(b'{"ok":true,"result":{"message_id":7}}')
         jpeg = b"\xff\xd8test-image\xff\xd9"
-        result = bot.telegram("123:test", "sendPhoto", {"chat_id": "@test", "photo": jpeg, "caption": "大额派彩"})
+        result = bot.telegram("123:test", "sendPhoto", {"chat_id": "@test", "photo": jpeg, "caption": "大额派彩", "reply_markup": {"inline_keyboard": [[{"text": "更多", "url": "https://example.com"}]]}})
         self.assertEqual(result["message_id"], 7)
         req = request.call_args.args[0]
         self.assertIn("multipart/form-data; boundary=", req.get_header("Content-type"))
         self.assertIn(jpeg, req.data)
         self.assertIn("大额派彩".encode(), req.data)
+        self.assertIn(json.dumps({"inline_keyboard": [[{"text": "更多", "url": "https://example.com"}]]},ensure_ascii=False).encode(),req.data)
         request.assert_called_once()
 
     def test_unknown_chinese_name_is_excluded_from_big_win(self):
