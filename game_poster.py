@@ -1,5 +1,6 @@
 """Build a game-specific, factual payout poster from the source game artwork."""
 from io import BytesIO
+import json
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
@@ -13,6 +14,17 @@ Image.MAX_IMAGE_PIXELS = 16_000_000
 
 
 def cover(game):
+    manifest_path = Path(__file__).parent / "game-covers-zh/index.json"
+    if manifest_path.exists():
+        entry = json.loads(manifest_path.read_text()).get(game.get("slug"))
+        if (entry and entry["provider"] == (game.get("provider") or {}).get("slug") and
+                bot.normalized_title(entry["en"]) == bot.normalized_title(game.get("name", ""))):
+            try:
+                with Image.open(manifest_path.parent / entry["file"]) as image:
+                    image.load()
+                    return image.convert("RGB")
+            except (OSError, ValueError):
+                pass
     url = urljoin(bot.BASE, str(game.get("thumb") or ""))
     parsed = urlsplit(url)
     if (parsed.scheme != "https" or parsed.netloc != "gambatracker.com" or

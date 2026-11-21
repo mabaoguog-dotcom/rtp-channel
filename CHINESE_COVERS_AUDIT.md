@@ -1,0 +1,110 @@
+# 中文封面核对
+
+日期：2026-11-21。
+
+已核实88款厂商原版中文PNG封面。按英文名、厂商、游戏版本和厂商中英文目录对应；保留原始PNG字节与哈希，不重绘文字。
+
+小程序、聊天图片、每小时排行和大额派彩优先共用该目录，缺失或核对不符则沿用原图。已发布旧帖的图片不在本次自动替换范围。
+
+未覆盖的已核实中文名游戏：
+
+- Gates of Olympus 2500 / 奥林匹斯之门2500
+- Gates of Olympus Super Scatter / 奥林匹斯之门超神力
+- Sweet Bonanza 2500 / 甜入心扉 2500
+- Big Bass Halloween Splash 1000 / 大鲈鱼溅水万圣夜1000
+- Sugar Rush 1000 / 极速糖果1000
+- Gates of Olympus 1000™ / 奥林匹斯之门 1000
+- Sweet Bonanza 1000 / 甜入心扉 1000
+- Big Bass Bonanza 1000 / 疯狂大鲈鱼 1000
+- Sweet Bonanza™ / 甜入心扉™
+- Gates of Olympus™ / 奥林匹斯之门™
+- Sugar Rush / 极速糖果
+- Fruit Party™ / 水果派对™
+- Big Bass Christmas Blast 1000 / 疯狂大鲈鱼欢乐爆发 1000
+- Zeus vs Hades POP / 宙斯vs哈迪斯 POP
+- Super Golden Spins / 超级大跃金
+- Killer Night / 暗夜猎杀
+- 5 Lions Megaways™ 2 / 5金狮Megaways™ 2
+- Big Bass Vegas 1000 / 至尊疯狂大鲈鱼 1000
+- Starlight Princess 1000 / 星光公主 1000
+- Wild West Gold™ / 西部牛仔黄金地段™
+- Land of The Free / 自由之国
+- Moon Princess Trinity / 月亮公主三位一体
+- Big Bass Bonanza / 疯狂大鲈鱼
+- Big Bass Splash / 大鲈鱼溅水
+- Duck Hunters / 鸭子猎人
+- Mental 2 / 疯人院 2
+- The Dog House / 汪汪之家
+- Zeus vs Hades – Gods of War 250 / 宙斯vs哈迪斯众神之战250
+- Clover Gold / 黄金三叶草
+- The Hand of Midas / 迈达斯之手
+- Gold Party / 黄金派对
+- Wisdom of Athena 1000 / 雅典娜的智慧1000
+- Starlight Princess Super Scatter / 星光公主超级闪耀
+- Big Bass Splash 1000 / 大鲈鱼溅水1000
+- Big Bass - Secrets of the Golden Lake / 疯狂大鲈鱼– 黄金湖的秘密
+- Big Bass Floats my Boat / 疯狂大鲈鱼摇摇船
+- Sweet Rush Bonanza / 甜心糖果大富翁
+- Sweet Bonanza Super Scatter / 甜入心扉– 超级闪耀
+- The Dog House - Dog or Alive / 汪汪之家狗狗神气
+- Joker's Jewels Cash / 小丑珠宝现金
+- Buffalo King Untamed Megaways / 王者野牛奔放Megaways™
+- Sugar Rush Super Scatter / 极速糖果超级闪耀
+- Zeus vs Hades - Gods of War / 宙斯vs哈迪斯众神之战™
+- Aztec Bonanza / 阿兹特克获利之道™
+- Starlight Princess / 星光公主™
+- Gates of Gatot Kaca / 印尼传奇迦多铎卡
+- Wisdom of Athena / 雅典娜的智慧
+- Starlight Princess Pachi / 星光公主帕奇
+- Gates of Aztec / 阿茲特克之门
+- Gates of Gatot Kaca Super Scatter / 印尼传奇迦多铎卡超级闪耀
+- 888 Dragons / 发发发龙™
+- Big Bass Amazon Xtreme / 疯狂大鲈鱼– 亚马逊极限
+- Christmas Big Bass Bonanza / 圣诞大鲈鱼™
+- Big Bass Bonanza 3 Reeler / 疯狂大鲈鱼3轴轮
+- Sweet Bonanza POP / 甜入心扉POP
+- Sweet Bonanza Dice / 甜入心扉骰子
+- The Dog House Megaways / 汪汪之家Megaways™
+- The Dog House Multihold / 汪汪之家多方位持控
+- Double Mummy's Jewels 1000 / 双影古墓秘宝1000
+- Fruit Party 2 / 水果派对2™
+- Wild West Gold Megaways / 西部牛仔黄金地段Megaways™
+- Gems Bonanza / 富矿宝石™
+- Great Rhino Deluxe / 巨大犀牛加强版™
+- Great Rhino Megaways / 巨大犀牛Megaways™
+- Great Rhino / 巨大犀牛™
+- Wild Wild Riches Megaways / 爱尔兰人宝藏Megaways™
+- 5 Lions Megaways / 5金狮Megaways™
+- Power of Thor Megaways / 雷神之锤Megaways™
+- 5 Lions Reborn / 5金狮重生
+- Joker's Jewels Hold & Spin / 小丑珠宝持控旋转
+- Joker's Jewels Hot / 火热小丑珠宝
+- Wild Wild Riches / 爱尔兰人宝藏™
+- Joker's Jewels Wild / 百搭小丑珠宝
+- Buffalo King / 王者野牛™
+- 5 Lions / 雄狮™
+- 5 Lions Gold / 5金狮™
+- 5 Lions Dance / 五狮团拜™
+- The Dog House Megaways™ 1000 / 汪汪之家Megaways 1000
+- Lucky Neko / 招财喵
+- Treasures of Aztec / 寻宝黄金城
+- Cocktail Nights / 夜醉佳人
+- Asgardian Rising / 维京纪元
+- Dreams of Macau / 澳门壕梦
+- Crypto Gold / 比特淘金
+- Bakery Bonanza / 烘焙总动员
+- Ganesha Fortune / 福运象财神
+- Ultimate Striker / 金球射手
+- Shaolin Soccer / 少林足球
+- Ways of the Qilin / 麒麟送宝
+- Thai River Wonders / 水上泰神奇
+- Jurassic Kingdom / 恐龙帝国
+- Mr. Hallow-Win / 万胜狂欢夜
+- Muay Thai Champion / 拳霸
+- Gem Saviour Conquest / 宝石侠 - 宝藏征途
+- Opera Dynasty / 新国粹
+- Candy Bonanza / 糖心风暴
+- Rise of Apollo / 太阳神传说
+- Oriental Prosperity / 江山美景图
+- The Queen's Banquet / 韩宫御宴
+- Lucky Clover Lady / 幸运草之恋
