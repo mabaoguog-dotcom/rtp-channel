@@ -1,6 +1,12 @@
 name: Configure immediate Telegram webhook
 on:
   workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [status, prepare, activate]
+        default: status
+        description: '查询状态、准备加密校验值或启用Webhook'
 permissions:
   contents: read
 concurrency:
@@ -15,8 +21,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Configure and verify immediate webhook directly with Telegram
+      - name: Configure and verify webhook directly with Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          WEBHOOK_OPERATION: ${{ inputs.operation }}
         run: python configure_webhook.py
+      - name: Save sealed verification value
+        if: inputs.operation == 'prepare'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sealed-webhook-verifier
+          path: sealed-webhook-verifier.bin
+          retention-days: 1
