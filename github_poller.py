@@ -158,7 +158,7 @@ def big_win_message(bet, checked):
     casino = html.escape(str((bet.get("casino") or {}).get("name", "未知赌场"))[:80])
     stamp = datetime.fromtimestamp(timestamp(bet), timezone.utc)
     checked_at = datetime.fromtimestamp(checked, timezone.utc)
-    return ("<b>🏆 大倍数记录 · 定时检查</b>\n\n" + bot.game_title(bet["game"]) +
+    return ("<b>🏆 高倍爆奖 · 定时检查</b>\n\n" + bot.game_title(bet["game"]) +
             f"\n赌场：{casino}\n投注：${bet['amount_usd']:,.2f}\n"
             f"派彩：${bet['payout_usd']:,.2f}\n"
             f"本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
@@ -183,7 +183,7 @@ def send_messages(messages, token, channel_id):
 def big_win_caption(bet, checked):
     record = bot.chinese_name(bet["game"])
     title = html.escape(record["zh"] + "（" + str(bet["game"].get("name", ""))[:100] + "）")
-    return ("<b>🏆 大倍数记录</b>\n\n" + title +
+    return ("<b>🏆 高倍爆奖</b>\n\n" + title +
             f"\n赌场：{html.escape(str((bet.get('casino') or {}).get('name', '未知赌场'))[:60])}"
             f"\n投注：${bet['amount_usd']:,.2f}\n派彩：${bet['payout_usd']:,.2f}"
             f"\n本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}"

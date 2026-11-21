@@ -179,7 +179,7 @@ class PollTests(unittest.TestCase):
         self.assertIsNone(store.state["hourly_slot"])
         self.assertEqual(telegram.call_count, 1)
         self.assertEqual("sendPhoto", telegram.call_args.args[1])
-        self.assertIn("大倍数记录", telegram.call_args.args[2]["caption"])
+        self.assertIn("高倍爆奖", telegram.call_args.args[2]["caption"])
         self.assertTrue(telegram.call_args.args[2]["photo"].startswith(b"\xff\xd8"))
 
     @patch("github_poller.time.time", return_value=2000000000)

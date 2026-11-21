@@ -68,7 +68,7 @@ def make_poster(bet, artwork=None):
             draw.ellipse((49 + x * 13, 40 + y * 13, 56 + x * 13, 47 + y * 13),
                          fill="#f2b134" if x == y == 1 else "#737771")
     text((103, 31), "RTP助手", 32)
-    text((1010, 43), "大倍数记录", 24, "#f2b134")
+    text((1010, 43), "高倍爆奖", 24, "#f2b134")
     draw.line((48, 104, 1232, 104), fill="#34332c", width=2)
     draw.rounded_rectangle((48, 139, 432, 694), radius=18, fill="#171a1d", outline="#34383e", width=2)
     if artwork is not None:

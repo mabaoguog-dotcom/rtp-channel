@@ -380,7 +380,7 @@ def make_hourly_messages(snapshots, config):
     active = [first] if first else []
     if not active:
         return []
-    blocks = ["<b>每小时 · RTP老虎机第1名</b>",
+    blocks = ["<b>每小时 · RTP第一名</b>",
               "从近1小时返回列表中，按观测RTP选样本达标且中文名已核实的第1名，非全站完整排名。",
               "中文名可点击查看出处；英文名链接为 RTP 页面。"]
     blocks.append("抓取时间（北京时间，UTC+8）：\n" + "\n".join(
