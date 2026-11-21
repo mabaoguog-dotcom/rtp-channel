@@ -32,12 +32,6 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Remove isolated test preview artifacts
         run: python -c "import shutil; shutil.rmtree('preview', ignore_errors=True)"
-      - name: Reply to private start commands
-        if: github.event_name == 'schedule' || inputs.publish
-        continue-on-error: true
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: python start_handler.py
       - name: Fetch and publish or preview
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

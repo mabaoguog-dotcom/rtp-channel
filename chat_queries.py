@@ -121,6 +121,6 @@ def query_replies(text):
     if text in ('🔎 搜索游戏','搜索游戏','/search'):
         return text_result('直接发送中文或英文游戏名即可查询，例如：甜入心扉、奥林匹斯、Sweet Bonanza。\n支持部分名称及已核实名称的繁体写法。')
     if text in ('❓ 使用说明','使用说明','/help'):
-        return text_result('RTP助手提供：多周期观测RTP、活跃第一名、最新大额派彩和中英文游戏搜索。\n\n完整游戏比较与月报请打开数据站。\n\n当前聊天查询由GitHub定时处理，可能延迟；左下角「打开数据站」可直接使用。\n历史样本不完整，不预测下一次结果。')
+        return text_result('RTP助手提供：多周期观测RTP、活跃第一名、最新大额派彩和中英文游戏搜索。\n\n完整游戏比较与月报请打开数据站。\n\n聊天查询使用Webhook即时接收；数据接口响应可能有波动，左下角「打开数据站」可直接使用。\n历史样本不完整，不预测下一次结果。')
     if text.startswith('/') and not text.startswith('/search '):return []
     return search(text.removeprefix('/search ').strip())
