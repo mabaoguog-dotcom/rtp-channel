@@ -1,4 +1,5 @@
 """Keep Bot Token in Actions; transfer only an RSA-sealed webhook verifier."""
+import base64
 import hashlib
 import hmac
 import os
@@ -25,6 +26,7 @@ def main():
         except Exception:raise bot.BotError('验证值封装失败，未输出任何凭证') from None
         Path('sealed-webhook-verifier.bin').write_bytes(sealed)
         print('Prepared encrypted webhook verifier. Bot Token remains in GitHub Actions.')
+        print('SEALED_VERIFIER='+base64.b64encode(sealed).decode())
         return
     if operation=='activate':
         verifier=hmac.new(token.encode(),CONTEXT,hashlib.sha256).hexdigest()
