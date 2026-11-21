@@ -2,6 +2,8 @@
 from datetime import datetime, timezone
 import json
 import os
+from pathlib import Path
+from game_poster import prepare_hourly_poster
 
 import bot
 
@@ -21,9 +23,15 @@ def main():
     message = messages[0].replace("每小时 · 活跃老虎机第1名", "即时查询 · 活跃老虎机第1名")
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     channel = bot.check_channel(token, config)
-    result = bot.telegram(token, "sendMessage", {
-        "chat_id": channel, "text": message, "parse_mode": "HTML",
-        "link_preview_options": {"is_disabled": True}})
+    poster = prepare_hourly_poster(snapshots, config)
+    if poster is None:
+        first = bot.hourly_first(snapshots, config)
+        cached = Path("game-covers") / (first["game"]["slug"] + ".jpg")
+        if not cached.exists():
+            raise bot.BotError("对应游戏海报暂不可用，未发送")
+        poster = cached.read_bytes()
+    result = bot.telegram(token, "sendPhoto", {
+        "chat_id": channel, "photo": poster, "caption": message, "parse_mode": "HTML"})
     print("已发送一条最新RTP汇总：https://t.me/rtpbodon/" + str(result["message_id"]))
 
 
