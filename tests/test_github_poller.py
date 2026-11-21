@@ -26,17 +26,33 @@ def rtp_row():
 
 
 class PollTests(unittest.TestCase):
-    def test_hourly_keeps_only_most_active_verified_game(self):
+    def test_hourly_excludes_insufficient_samples_even_with_high_rtp(self):
         first = rtp_row()
         second = copy.deepcopy(first)
         slug, record = next((s, r) for s, r in bot.ZH_NAMES.items() if s != first["game"]["slug"])
         second["game"].update(slug=slug, name=record["en"])
         second["n"] = 1
         second["rtp"] = 99
+        second["enough_sample"] = False
         stamp = datetime.now(timezone.utc)
         text = "\n".join(bot.make_hourly_messages([(w, [second, first], stamp) for w in ("10m", "1h", "24h")], {}))
         self.assertIn(first["game"]["name"], text)
         self.assertNotIn(second["game"]["name"], text)
+
+    def test_hourly_ranks_by_one_hour_rtp_not_bet_count(self):
+        first = rtp_row()
+        second = copy.deepcopy(first)
+        second['game'] = {'kind': 'slots', 'slug': 'mahjong-ways', 'name': 'Mahjong Ways', 'provider': {'slug': 'pgsoft'}}
+        second.update(rtp=1.5, n=100)
+        stamp = datetime.now(timezone.utc)
+        self.assertEqual(bot.hourly_first([('1h', [first, second], stamp), ('24h', [first], stamp)], {}), second)
+
+    def test_high_multiplier_with_small_payout_is_eligible(self):
+        b = bet()
+        b.update(amount_usd=1, payout_usd=200, multiplier=200)
+        self.assertTrue(poll.eligible(b, 2000000000))
+        b.update(amount_usd=1000, payout_usd=50000, multiplier=50)
+        self.assertFalse(poll.eligible(b, 2000000000))
 
     @patch("bot.urlopen")
     def test_photo_upload_preserves_image_and_chinese_caption(self, request):
@@ -77,7 +93,7 @@ class PollTests(unittest.TestCase):
     def test_old_non_slot_loss_small_and_nonfinite_are_excluded(self):
         self.assertTrue(poll.eligible(bet(), 2000000000))
         self.assertFalse(poll.eligible(bet(), 2000003601))
-        for key, value in [("amount_usd", 30000), ("payout_usd", 9999),
+        for key, value in [("amount_usd", 30000), ("multiplier", 99),
                            ("multiplier", float("nan")), ("id", "")]:
             b = bet()
             b[key] = value
@@ -163,7 +179,7 @@ class PollTests(unittest.TestCase):
         self.assertIsNone(store.state["hourly_slot"])
         self.assertEqual(telegram.call_count, 1)
         self.assertEqual("sendPhoto", telegram.call_args.args[1])
-        self.assertIn("大额派彩记录", telegram.call_args.args[2]["caption"])
+        self.assertIn("大倍数记录", telegram.call_args.args[2]["caption"])
         self.assertTrue(telegram.call_args.args[2]["photo"].startswith(b"\xff\xd8"))
 
     @patch("github_poller.time.time", return_value=2000000000)

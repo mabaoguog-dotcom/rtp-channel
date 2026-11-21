@@ -367,11 +367,11 @@ def split_messages(blocks):
 
 
 def hourly_first(snapshots, config):
-    rows = next((rows for window, rows, _ in snapshots if window == "24h"), [])
+    rows = next((rows for window, rows, _ in snapshots if window == "1h"), [])
     wanted = set(config.get("game_slugs", []))
-    active = [row for row in rows if chinese_name(row["game"]) and
+    active = [row for row in rows if chinese_name(row["game"]) and row.get("enough_sample") is True and number(row.get("rtp")) and
               (not wanted or row["game"]["slug"] in wanted)]
-    return max(active, key=lambda row: row["n"], default=None)
+    return max(active, key=lambda row: (row["rtp"], row["n"]), default=None)
 
 
 def make_hourly_messages(snapshots, config):
@@ -380,8 +380,8 @@ def make_hourly_messages(snapshots, config):
     active = [first] if first else []
     if not active:
         return []
-    blocks = ["<b>每小时 · 活跃老虎机第1名</b>",
-              "从近24小时列表中，仅选中文名已核实的活跃游戏，按投注笔数仅取第1名，非全站完整排名。",
+    blocks = ["<b>每小时 · RTP老虎机第1名</b>",
+              "从近1小时返回列表中，按观测RTP选样本达标且中文名已核实的第1名，非全站完整排名。",
               "中文名可点击查看出处；英文名链接为 RTP 页面。"]
     blocks.append("抓取时间（北京时间，UTC+8）：\n" + "\n".join(
         f"{LABELS[w]} {beijing_time(fetched)}" for w, _, fetched in snapshots))
@@ -466,7 +466,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--send", action="store_true", help="实际发送；默认只生成预览")
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--hourly", action="store_true", help="活跃第1名的10m/1h/24h对照汇总")
+    parser.add_argument("--hourly", action="store_true", help="RTP第1名的10m/1h/24h对照汇总")
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
     validate_config(config)

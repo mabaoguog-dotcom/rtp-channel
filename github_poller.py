@@ -25,7 +25,7 @@ def timestamp(bet):
         return None
 
 
-def eligible(bet, now, minimum=10000):
+def eligible(bet, now, minimum=100):
     if not isinstance(bet, dict) or not isinstance(bet.get("game"), dict):
         return False
     game = bet["game"]
@@ -40,7 +40,7 @@ def eligible(bet, now, minimum=10000):
         return False
     stamp = timestamp(bet)
     return (stamp is not None and -30 <= now - stamp <= 3600 and
-            bet["payout_usd"] >= minimum and bet["payout_usd"] > bet["amount_usd"])
+            bet["multiplier"] >= minimum and bet["payout_usd"] > bet["amount_usd"])
 
 
 def fetch_bets(now, last_check, max_pages=50):
@@ -49,7 +49,7 @@ def fetch_bets(now, last_check, max_pages=50):
     cutoff = max(now - 3600, last_check - 120)
     cursor, cursors, found = None, set(), {}
     for _ in range(max_pages):
-        params = {"feed": "big-wins", "window": window, "limit": 200}
+        params = {"feed": "lucky", "window": window, "limit": 200}
         if cursor:
             params["cursor"] = cursor
         key = os.environ.get("GAMBATRACKER_API_KEY", "").strip()
@@ -158,7 +158,7 @@ def big_win_message(bet, checked):
     casino = html.escape(str((bet.get("casino") or {}).get("name", "未知赌场"))[:80])
     stamp = datetime.fromtimestamp(timestamp(bet), timezone.utc)
     checked_at = datetime.fromtimestamp(checked, timezone.utc)
-    return ("<b>🏆 大额派彩记录 · 定时检查</b>\n\n" + bot.game_title(bet["game"]) +
+    return ("<b>🏆 大倍数记录 · 定时检查</b>\n\n" + bot.game_title(bet["game"]) +
             f"\n赌场：{casino}\n投注：${bet['amount_usd']:,.2f}\n"
             f"派彩：${bet['payout_usd']:,.2f}\n"
             f"本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}\n"
@@ -183,7 +183,7 @@ def send_messages(messages, token, channel_id):
 def big_win_caption(bet, checked):
     record = bot.chinese_name(bet["game"])
     title = html.escape(record["zh"] + "（" + str(bet["game"].get("name", ""))[:100] + "）")
-    return ("<b>🏆 大额派彩记录</b>\n\n" + title +
+    return ("<b>🏆 大倍数记录</b>\n\n" + title +
             f"\n赌场：{html.escape(str((bet.get('casino') or {}).get('name', '未知赌场'))[:60])}"
             f"\n投注：${bet['amount_usd']:,.2f}\n派彩：${bet['payout_usd']:,.2f}"
             f"\n本笔净赢：${bet['payout_usd'] - bet['amount_usd']:,.2f}"
@@ -206,16 +206,16 @@ def send_big_win(bet, checked, token, channel_id):
 def run(store, config, send=False, now=None):
     now = time.time() if now is None else now
     state = store.load(now)
-    minimum = float(os.environ.get("BIG_WIN_MIN_PAYOUT_USD", "10000"))
+    minimum = float(os.environ.get("BIG_WIN_MIN_MULTIPLIER", "100"))
     if not bot.number(minimum) or minimum <= 0:
-        raise bot.BotError("派彩金额门槛无效")
+        raise bot.BotError("赢奖倍数门槛无效")
     try:
         bets, complete = fetch_bets(now, state["last_check"])
     except bot.BotError as exc:
         bets, complete = [], False
         print(f"大额接口读取失败：{exc}；本次跳过，不向频道发异常通知")
     candidates = sorted((b for b in bets if eligible(b, now, minimum)),
-                        key=timestamp, reverse=True)
+                        key=lambda b: (b["multiplier"], timestamp(b)), reverse=True)
     due = state["hourly_slot"] is None or int(now // 3600) > state["hourly_slot"]
     hourly = []
     if due or not send:

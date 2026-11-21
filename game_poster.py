@@ -68,7 +68,7 @@ def make_poster(bet, artwork=None):
             draw.ellipse((49 + x * 13, 40 + y * 13, 56 + x * 13, 47 + y * 13),
                          fill="#f2b134" if x == y == 1 else "#737771")
     text((103, 31), "RTP助手", 32)
-    text((1010, 43), "大额派彩记录", 24, "#f2b134")
+    text((1010, 43), "大倍数记录", 24, "#f2b134")
     draw.line((48, 104, 1232, 104), fill="#34332c", width=2)
     draw.rounded_rectangle((48, 139, 432, 694), radius=18, fill="#171a1d", outline="#34383e", width=2)
     if artwork is not None:
@@ -81,10 +81,10 @@ def make_poster(bet, artwork=None):
     record = bot.chinese_name(game)
     text((480, 138), record["zh"] if record else game["name"], 38, width=742)
     text((482, 202), game["name"], 24, "#92968f", width=740)
-    text((482, 268), "派彩金额", 23, "#aeb2ab")
-    text((477, 304), money(bet["payout_usd"]), 67, "#f2b134", width=747)
+    text((482, 268), "赢奖倍数", 23, "#aeb2ab")
+    text((477, 304), f"{bet['multiplier']:,.2f}倍", 67, "#f2b134", width=747)
     draw.line((480, 414, 1232, 414), fill="#303339", width=2)
-    fields = [(480, "赢奖倍数", f"{bet['multiplier']:,.2f}x"),
+    fields = [(480, "派彩金额", money(bet["payout_usd"])),
               (858, "投注金额", money(bet["amount_usd"]))]
     for x, label, value in fields:
         text((x, 445), label, 21, "#92968f")
