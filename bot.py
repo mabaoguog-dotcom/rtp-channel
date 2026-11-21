@@ -405,6 +405,14 @@ def make_hourly_messages(snapshots, config):
 
 
 def telegram(token, method, payload):
+    if method in ("sendMessage", "sendPhoto"):
+        payload = dict(payload)
+        field = "text" if method == "sendMessage" else "caption"
+        body = str(payload.get(field, ""))
+        if "RTP实时播报：" not in body:
+            suffix = ('RTP实时播报：<a href="https://t.me/pg777pd">@pg777pd</a>'
+                      if payload.get("parse_mode") == "HTML" else "RTP实时播报：@pg777pd")
+            payload[field] = body + "\n" + suffix
     if method == "sendPhoto" and isinstance(payload.get("photo"), bytes):
         boundary = "rtp-" + secrets.token_hex(16)
         parts = []
