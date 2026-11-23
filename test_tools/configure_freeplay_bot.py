@@ -17,7 +17,9 @@ def main():
  me=call('getMe',{})
  if me.get('username','').lower()!='shiwanceshibot':raise RuntimeError('机器人身份不符，已阻止所有配置写入。')
  call('setChatMenuButton',{'menu_button':{'type':'web_app','text':'打开试玩测试','web_app':{'url':URL}}})
- print('已配置 @shiwanceshiBOT 测试菜单；正式机器人未修改。')
+ menu=call('getChatMenuButton',{})
+ if menu.get('type')!='web_app' or menu.get('web_app',{}).get('url')!=URL:raise RuntimeError('测试菜单回读不一致，请核查测试机器人；未操作正式机器人。')
+ print('已配置并回读核验 @shiwanceshiBOT 测试菜单；正式机器人未修改。')
 if __name__=='__main__':
  try:main()
  except RuntimeError as e:print(str(e),file=sys.stderr);sys.exit(1)
