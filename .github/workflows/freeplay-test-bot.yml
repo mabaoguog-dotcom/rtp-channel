@@ -1,0 +1,23 @@
+name: Configure isolated freeplay TEST bot
+on:
+  push:
+    branches: ['test/freeplay-bot']
+    paths: ['test_tools/configure_freeplay_bot.py', '.github/workflows/freeplay-test-bot.yml']
+permissions:
+  contents: read
+concurrency:
+  group: isolated-shiwanceshi-test-menu
+  cancel-in-progress: false
+jobs:
+  configure-test-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify TEST bot identity and configure its menu only
+        env:
+          TELEGRAM_TEST_BOT_TOKEN: ${{ secrets.TELEGRAM_TEST_BOT_TOKEN }}
+        run: python test_tools/configure_freeplay_bot.py --apply
