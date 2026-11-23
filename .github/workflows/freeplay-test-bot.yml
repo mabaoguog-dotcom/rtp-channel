@@ -19,5 +19,5 @@ jobs:
           python-version: '3.12'
       - name: Verify TEST bot identity and configure its menu only
         env:
-          TELEGRAM_TEST_BOT_TOKEN: ${{ secrets.TELEGRAM_TEST_BOT_TOKEN }}
+          TELEGRAM_TEST_BOT_TOKEN: ${{ secrets.SHIWANCESHIBOT || secrets.TELEGRAM_TEST_BOT_TOKEN }}
         run: python test_tools/configure_freeplay_bot.py --apply
